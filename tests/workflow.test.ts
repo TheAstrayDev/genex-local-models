@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {activate,requestFor} from '../src/backend.ts';
+import {createPlugin,requestFor} from '../src/backend.ts';
 import {catalog} from '../src/catalog.ts';
 import type {PluginContext} from '../vendor/genex-sdk.d.ts';
 import {assetEntries} from '../src/assets.ts';
@@ -11,7 +11,7 @@ import {assetEntries} from '../src/assets.ts';
 const imageId='0c770828-6f7f-446a-9f67-9ca2d9d47ff6';
 const modelId='88e6cf05-7940-4485-9737-380215946aa1';
 
-async function fixture(t:any){
+async function fixture(t:any,host={platform:'win32',arch:'x64',release:'10.0.26100'}){
  const root=await mkdtemp(path.join(os.tmpdir(),'local-model-workflow-'));
  t.after(()=>rm(root,{recursive:true,force:true}));
  await writeFile(path.join(root,'assignments.json'),JSON.stringify({image:'qwen-image-2.1-turbo',texture:'qwen-image-2.1-turbo',sfx:'stable-audio-3-small-sfx',music:'stable-audio-3-small-music',model:'hunyuan3d-2-turbo'}));
@@ -38,13 +38,23 @@ async function fixture(t:any){
   }
   throw Error('Unexpected host call '+method);
  }) as PluginContext['host']};
- const plugin=await activate(()=>{throw Error('Unexpected activation call');});
+ const plugin=createPlugin(host);
  return {ctx,plugin,calls,jobs,records};
 }
 
 test('Hunyuan3D accepts exact delivered image paths without a public-folder copy',()=>{
  assert.equal(requestFor('generate-model',{name:'car',image:`assets/theastraydev-local-models/${imageId}/image.png`}).inputs.image,`assets/theastraydev-local-models/${imageId}/image.png`);
  for(const image of ['../secret.png','assets/../../secret.png','assets/.secret/x.png','C:/x.png','https://example.com/x.png'])assert.throws(()=>requestFor('generate-model',{name:'car',image}));
+});
+
+test('Mac hides incompatible 3D setup and rejects the route before an expensive reference',async t=>{
+ const f=await fixture(t,{platform:'darwin',arch:'arm64',release:'25.0.0'});
+ const status:any=await f.plugin.tool!('status',{},f.ctx);
+ const mesh=status.models.find((m:any)=>m.id==='hunyuan3d-2-turbo');
+ assert.equal(mesh.state,'unsupported');assert.equal(mesh.canInstall,false);assert.equal(mesh.ready,false);
+ await assert.rejects(f.plugin.tool!('generate-model',{name:'car',prompt:'car'},f.ctx),/no Mac\/AMD adapter/);
+ assert.equal(f.calls.filter(c=>c.method==='native.run').length,0);
+ assert.equal(status.models.find((m:any)=>m.id==='qwen-image-2.1-turbo').supported,true);
 });
 
 test('image job to 3D preserves the exact UUID and does not regenerate the reference',async t=>{

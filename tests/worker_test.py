@@ -12,6 +12,29 @@ hunyuan = importlib.util.module_from_spec(spec_hunyuan)
 spec_hunyuan.loader.exec_module(hunyuan)
 
 class WorkerTests(unittest.TestCase):
+    def test_metal_and_vulkan_commands_use_fixed_local_backends(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            request={'model':'qwen-image-2.1-turbo','prompt':'stone','seed':42,'size':512,'purpose':'texture'}
+            for backend,filename in [('metal','sd-cli'),('vulkan','sd-cli.exe'),('cuda','sd-cli.exe')]:
+                (root/'runtime.json').write_text(json.dumps({'sd_cli':'sd-cpp/'+filename,'backend':backend}))
+                command=worker.image_command(root,request,root/'image.png')
+                self.assertEqual(Path(command[0]).name,filename)
+                self.assertIn('--mmap',command)
+                self.assertIn('--params-backend',command)
+            model=root/'models/stable-audio-3-small-sfx/model.gguf'
+            model.parent.mkdir(parents=True);model.write_bytes(b'GGUFfixture')
+            audio={'model':'stable-audio-3-small-sfx','prompt':'click','seed':42,'duration':1}
+            for backend,filename in [('metal','audiocpp_cli'),('vulkan','audiocpp_cli.exe'),('cuda','audiocpp_cli.exe')]:
+                (root/'audio-backend.json').write_text(json.dumps({'backend':backend}))
+                command=worker.audio_command(root,audio,root/'audio.wav')
+                self.assertEqual(command[command.index('--backend')+1],backend)
+                self.assertEqual(Path(command[0]).name,filename)
+            (root/'audio-backend.json').write_text(json.dumps({'backend':'arbitrary'}))
+            with self.assertRaises(ValueError):worker.audio_command(root,audio,root/'audio.wav')
+            self.assertEqual(worker.runtime_root(root/'qwen.app/Contents/bin/python3.11'),root/'qwen.app/Contents')
+
     def test_native_rgba_prompt_preserves_agent_description_and_background_exceptions(self):
         request = {'prompt': 'A small hand painted golden coin', 'purpose': 'icon'}
         prompt = worker.image_prompt(request)

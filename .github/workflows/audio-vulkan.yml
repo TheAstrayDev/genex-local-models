@@ -1,0 +1,58 @@
+name: Build LPAC-compatible Vulkan audio runtime
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: 0xShug0/audio.cpp
+          ref: cf124a67cc55d8f65a9a15eec69edbff0fb212c8
+          submodules: recursive
+          path: .native-source
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply reviewed path-only compatibility change
+        run: python scripts/patch-audio-source.py .native-source
+      - name: Install pinned Vulkan SDK on the disposable runner
+        shell: pwsh
+        run: |
+          $sdkVersion = '1.4.357.0'
+          $installer = Join-Path $env:RUNNER_TEMP 'VulkanSDK.exe'
+          Invoke-WebRequest "https://sdk.lunarg.com/sdk/download/$sdkVersion/windows/vulkansdk-windows-X64-$sdkVersion.exe" -OutFile $installer
+          $signature = Get-AuthenticodeSignature -LiteralPath $installer
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'LunarG') { throw 'Untrusted Vulkan SDK installer' }
+          & $installer --accept-licenses --default-answer --confirm-command install
+          if ($LASTEXITCODE -ne 0) { throw 'Vulkan SDK installation failed' }
+          Add-Content $env:GITHUB_ENV "VULKAN_SDK=C:\VulkanSDK\$sdkVersion"
+          Add-Content $env:GITHUB_PATH "C:\VulkanSDK\$sdkVersion\Bin"
+      - name: Configure and build the fixed Stable Audio CLI
+        shell: pwsh
+        run: |
+          cmake -S .native-source -B .native-build -G 'Visual Studio 17 2022' -A x64 -DENGINE_ENABLE_CUDA=OFF -DENGINE_ENABLE_VULKAN=ON -DENGINE_ENABLE_METAL=OFF -DENGINE_ENABLE_CPU_ALL_VARIANTS=OFF -DENGINE_ENABLE_NATIVE_CPU=OFF -DENGINE_ENABLE_OPENMP=OFF -DGGML_OPENMP=OFF -DAUDIOCPP_MODEL_SET=custom -DAUDIOCPP_MODELS=stable_audio -DAUDIOCPP_DEPLOYMENT_BUILD=ON -DAUDIOCPP_BUILD_NATIVE_MODEL_MANAGER=OFF -DAUDIOCPP_BUILD_SERVER_FRONTENDS=OFF -DENGINE_BUILD_TESTS=OFF -DAUDIOCPP_STATIC_ESPEAK=OFF -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+          if ($LASTEXITCODE -ne 0) { throw 'Configure failed' }
+          cmake --build .native-build --config Release --target audiocpp_cli --parallel 4
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+      - name: Package runtime and provenance
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path .native-output | Out-Null
+          $binary = Get-ChildItem .native-build -Filter audiocpp_cli.exe -Recurse | Select-Object -First 1
+          & $binary.FullName --help
+          if ($LASTEXITCODE -ne 0) { throw 'CLI startup failed' }
+          Copy-Item -LiteralPath $binary.FullName -Destination .native-output/audiocpp_cli.exe
+          Copy-Item .native-source/LICENSE .native-output/LICENSE.audio.cpp
+          Copy-Item plugin/lpac_path.h .native-output/lpac_path.h
+          Copy-Item scripts/patch-audio-source.py .native-output/patch-audio-source.py
+          $ggml = Get-ChildItem .native-source/external -Filter LICENSE -Recurse | Where-Object FullName -Match 'ggml' | Select-Object -First 1
+          if ($ggml) { Copy-Item $ggml.FullName .native-output/LICENSE.ggml }
+          @{sourceRevision='cf124a67cc55d8f65a9a15eec69edbff0fb212c8'; backend='vulkan'; modification='LPAC path normalization only'; sha256=(Get-FileHash $binary.FullName -Algorithm SHA256).Hash.ToLower(); bytes=$binary.Length; run=$env:GITHUB_RUN_ID} | ConvertTo-Json | Set-Content .native-output/provenance.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: audio-vulkan-lpac
+          path: .native-output/

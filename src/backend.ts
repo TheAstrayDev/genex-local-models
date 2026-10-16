@@ -8,6 +8,7 @@ import {installation,startInstallation,cancelInstallation} from './installer.ts'
 import {assetEntries,nativeResult,retrieve,retainedAssets,restoreAssets} from './assets.ts';
 import type {Activate,PluginContext} from '../vendor/genex-sdk.d.ts';
 import {integrationFor,inspectUse,verifyUse} from './integration.ts';
+import {currentHost,compatibility,runtimeDirectory,type Host} from './platform.ts';
 
 const queue=new ModelQueue();
 let activeModel:string|null=null;
@@ -26,23 +27,25 @@ async function regular(root:string,file:string){
   return relative!==''&&!relative.startsWith('..')&&!path.isAbsolute(relative)&&(await lstat(target)).isFile();
  }catch{return false;}
 }
-async function state(ctx:PluginContext){
+async function state(ctx:PluginContext,host:Host){
  const root=await storage(ctx),runtime=await ctx.host('runtime.detect',{runtime:runtimeId});
  const qwen=await ctx.host('runtime.detect',{runtime:'qwen'});
  const audio=await ctx.host('runtime.detect',{runtime:'audio'});
  const hunyuan=await ctx.host('runtime.detect',{runtime:'hunyuan'});
- const runtimeRoot=runtime.path?path.dirname(runtime.path):null;
+ const runtimeRoot=runtime.path?runtimeDirectory(runtime.path):null;
  const models=await Promise.all(catalog.map(async model=>{
   const selected=model.id==='qwen-image-2.1-turbo'?qwen:model.id==='hunyuan3d-2-turbo'?hunyuan:audio;
-  const modelRoot=selected.path?path.dirname(selected.path):null;
-  const available=modelRoot?await Promise.all(model.files.map(file=>regular(modelRoot,file))):[];
-  const ready=selected.state==='ready'&&available.length>0&&available.every(Boolean);
-  return {...model,ready,state:model.id===activeModel?'working':ready?'sleeping':model.gate?'access-required':'not-installed',
-   reason:model.id===activeModel?'One model worker is active. Other models stay asleep.':ready?'Loads only when assigned work starts.':model.id==='hunyuan3d-2-turbo'?'The Hunyuan3D Windows Portable runtime needs its verified local texture setup.':'Use Install to download and verify the public weights and runtime. No account or token is needed.'};
+  const modelRoot=selected.path?runtimeDirectory(selected.path):null;
+  const support=compatibility(model.id,host);
+  const required=model.files.map(file=>host.platform==='darwin'?file.replace('audiocpp_cli.exe','audiocpp_cli'):file);
+  const available=modelRoot?await Promise.all(required.map(file=>regular(modelRoot,file))):[];
+  const ready=support.supported&&selected.state==='ready'&&available.length>0&&available.every(Boolean);
+  return {...model,...support,ready,runtimeRoot:modelRoot,state:!support.supported?'unsupported':model.id===activeModel?'working':ready?'sleeping':model.gate?'access-required':'not-installed',
+   reason:!support.supported?support.requirement:model.id===activeModel?'One model worker is active. Other models stay asleep.':ready?'Loads only when assigned work starts.':model.id==='hunyuan3d-2-turbo'?'The Hunyuan3D Windows Portable runtime needs its verified local texture setup.':'Use Install to download and verify the public weights and runtime. No account or token is needed.'};
  }));
  let recent:unknown[]=[];
  try{recent=JSON.parse(await readFile(path.join(root,'recent.json'),'utf8'));}catch{}
- return {project:ctx.project??null,runtime,qwen,root:runtimeRoot,models,installation:installation(),assignments:await assignments(root),
+ return {project:ctx.project??null,host,runtime,qwen,root:runtimeRoot,models,installation:installation(),assignments:await assignments(root),
   execution:{policy:'one-model-at-a-time',sleep:'terminate-process',active:queue.active,model:activeModel,pending:queue.pending},recent};
 }
 
@@ -93,11 +96,11 @@ export function requestFor(name:string,args:Record<string,unknown>):{route:Route
  return {route,request:{prompt:args.prompt,seed:Number(seed),duration},inputs:{}};
 }
 
-async function generate(name:string,args:Record<string,unknown>,ctx:PluginContext){
+async function generate(name:string,args:Record<string,unknown>,ctx:PluginContext,host:Host){
  const request=requestFor(name,args),root=await storage(ctx);
  const selection=await assignments(root),selected=selection[request.route];
  if(!selected)throw Error(`No local model is assigned to ${request.route}. Choose one in Plugins → Local Models.`);
- const snapshot=await state(ctx),model=snapshot.models.find(model=>model.id===selected);
+ const snapshot=await state(ctx,host),model=snapshot.models.find(model=>model.id===selected);
  if(!model?.ready)throw Error(`${model?.name??selected}: ${model?.reason??'not installed'}`);
  return queue.run(root,ctx.signal,async()=>{
   activeModel=selected;
@@ -123,19 +126,20 @@ async function generate(name:string,args:Record<string,unknown>,ctx:PluginContex
 }
 
 /** One request can create its own reference; every GPU phase keeps the existing single-worker lease. */
-async function generateModel(args:Record<string,unknown>,ctx:PluginContext){
+async function generateModel(args:Record<string,unknown>,ctx:PluginContext,host:Host){
  const allowed=['name','image','imageJobId','prompt','seed','quality'];
  if(Object.keys(args).some(key=>!allowed.includes(key)))throw Error('Unknown generation argument.');
  const choices=['image','imageJobId','prompt'].filter(key=>args[key]!==undefined);
  if(choices.length!==1)throw Error('Choose exactly one of image, imageJobId or prompt.');
- if(choices[0]==='image')return generate('generate-model',args,ctx);
+ if(choices[0]==='image')return generate('generate-model',args,ctx,host);
  // Validate everything before an expensive reference generation or any delivery.
- const selection=await state(ctx),selected=selection.assignments.model;
- if(!selected||!selection.models.some(model=>model.id===selected&&model.ready))throw Error('No ready local model is assigned to model. Choose Hunyuan3D in Plugins → Local Models.');
+ const selection=await state(ctx,host),selected=selection.assignments.model;
+ const model=selection.models.find(model=>model.id===selected);
+ if(!model?.ready)throw Error(`No ready local model is assigned to model. ${model?.reason??'Choose Hunyuan3D in Plugins → Local Models.'}`);
  const profile=requestFor('generate-model',{name:args.name,image:'assets/reference.png',seed:args.seed,quality:args.quality}).request.quality;
  let referenceJobId=args.imageJobId;
  if(choices[0]==='prompt'){
-  const image=await generate('generate-image',{name:args.name,prompt:args.prompt,task:'image',purpose:'model-reference',size:profile==='high'?768:512,seed:args.seed},ctx);
+  const image=await generate('generate-image',{name:args.name,prompt:args.prompt,task:'image',purpose:'model-reference',size:profile==='high'?768:512,seed:args.seed},ctx,host);
   // Hunyuan can use most of Genex's five-minute tool budget itself. Retain the
   // reference and let Studio continue in a second call, without asking the user.
   return {state:'reference-ready',completed:false,referenceJobId:image.jobId,referenceAssets:image.assets,
@@ -147,15 +151,16 @@ async function generateModel(args:Record<string,unknown>,ctx:PluginContext){
  const delivered=await retrieve(ctx,reference.id),image=delivered.record.files.find((file:string)=>/\.(png|jpe?g|webp)$/i.test(file));
  if(!image)throw Error(`Reference job ${reference.id} has no delivered image. Retrieve it before retrying; do not regenerate it.`);
  try{
-  const result={...await generate('generate-model',{name:args.name,image,seed:args.seed,quality:profile},ctx),referenceJobId:reference.id};
+  const result={...await generate('generate-model',{name:args.name,image,seed:args.seed,quality:profile},ctx,host),referenceJobId:reference.id};
   await ctx.host('jobs.write',{id:result.jobId,value:result});
   return result;
  }catch(error){throw Error(`3D generation did not complete. Reference job ${reference.id} is retained. Retry with imageJobId=${reference.id} and quality=${profile} to reuse it. ${String(error)}`);}
 }
 
-export const activate:Activate=()=>({
+/** Inject only host identity for deterministic cross-platform workflow fixtures. */
+export const createPlugin=(host:Host):Awaited<ReturnType<Activate>>=>({
  async action(name,args,ctx){
-  if(name==='status')return state(ctx);
+  if(name==='status')return state(ctx,host);
   if(name==='discover')return discover();
   if(name==='restore-assets')return restoreAssets(ctx);
   if(name==='install'){
@@ -170,7 +175,7 @@ export const activate:Activate=()=>({
   throw Error('Unknown Local Models action.');
  },
  async tool(name,args,ctx){
-  if(name==='status')return state(ctx);
+  if(name==='status')return state(ctx,host);
   if(name==='assets')return retainedAssets(ctx);
   if(name==='inspect-use'){
    if(Object.keys(args).some(key=>key!=='id'))throw Error('Unknown inspection argument.');
@@ -184,7 +189,8 @@ export const activate:Activate=()=>({
    if(Object.keys(args).some(key=>key!=='id'))throw Error('Unknown retrieval argument.');
    return retrieve(ctx,args.id);
   }
-  if(name==='generate-model')return generateModel(args,ctx);
-  return generate(name,args,ctx);
+  if(name==='generate-model')return generateModel(args,ctx,host);
+  return generate(name,args,ctx,host);
  }
 });
+export const activate:Activate=()=>createPlugin(currentHost());

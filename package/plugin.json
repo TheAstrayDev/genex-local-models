@@ -4,7 +4,7 @@
   "version": "0.1.11",
   "name": "Local Models",
   "publisher": "TheAstrayDev",
-  "description": "Experimental Windows/NVIDIA local image, audio and 3D generation. Requires an unreleased native-job host extension; not compatible with stock Genex 0.1.7. One GPU worker at a time.",
+  "description": "Experimental local images/audio on Windows x64 Vulkan (AMD/NVIDIA) and Apple Silicon Metal. Textured Hunyuan3D remains Windows/NVIDIA only. Requires a development native-job host; not stock Genex 0.1.7.",
   "icon": "icon.svg",
   "backend": "backend.mjs",
   "capabilities": [
@@ -322,7 +322,8 @@
       "id": "qwen",
       "label": "Qwen SSD Python",
       "candidates": [
-        "home:Genex-Local-Models/qwen/python.exe"
+        "home:Genex-Local-Models/qwen/python.exe",
+        "home:Genex-Local-Models/qwen.app/Contents/bin/python3.11"
       ],
       "version": {
         "args": [
@@ -339,6 +340,13 @@
             "home:Genex-Local-Models/qwen/python.exe",
             "D:/Genex-Local-Models/qwen/python.exe"
           ]
+        },
+        {
+          "platform": "darwin",
+          "arch": "arm64",
+          "candidates": [
+            "home:Genex-Local-Models/qwen.app/Contents/bin/python3.11"
+          ]
         }
       ]
     },
@@ -346,7 +354,8 @@
       "id": "audio",
       "label": "audio local runtime",
       "candidates": [
-        "home:Genex-Local-Models/audio/python.exe"
+        "home:Genex-Local-Models/audio/python.exe",
+        "home:Genex-Local-Models/audio.app/Contents/bin/python3.11"
       ],
       "version": {
         "args": [
@@ -362,6 +371,13 @@
           "candidates": [
             "home:Genex-Local-Models/audio/python.exe",
             "D:/Genex-Local-Models/audio/python.exe"
+          ]
+        },
+        {
+          "platform": "darwin",
+          "arch": "arm64",
+          "candidates": [
+            "home:Genex-Local-Models/audio.app/Contents/bin/python3.11"
           ]
         }
       ]

@@ -6,7 +6,10 @@ permissions:
   contents: read
 jobs:
   source:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-26]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,3 +27,6 @@ jobs:
       - run: npm run build
       - name: Prebuilt package matches source
         run: git diff --exit-code -- package
+      - name: Pinned runtime startup without weights
+        if: runner.os == 'Windows' || runner.os == 'macOS'
+        run: node scripts/check-runtimes.ts

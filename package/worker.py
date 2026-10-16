@@ -123,7 +123,10 @@ def image_command(root, request, output):
         raise ValueError("Unsupported image size")
     config = json.loads((root / "runtime.json").read_text(encoding="utf8"))
     binary = (root / config["sd_cli"]).resolve()
-    if not binary.is_relative_to(root.resolve()) or binary.name != "sd-cli.exe":
+    backend = config.get("backend", "cuda")
+    if backend not in {"cuda", "vulkan", "metal"}:
+        raise ValueError("Unsupported image backend")
+    if not binary.is_relative_to(root.resolve()) or binary.name != ("sd-cli" if backend == "metal" else "sd-cli.exe"):
         raise ValueError("Invalid reviewed runtime")
     models = root / "models" / request["model"]
     return [str(binary), "--diffusion-model", str(models / "diffusion.gguf"),
@@ -132,6 +135,33 @@ def image_command(root, request, output):
             "--seed", str(request["seed"]), "--steps", "8", "--cfg-scale", "1.0", "--sigmas", "qwen-image-2.1-turbo",
             "--sampling-method", "euler", "--diffusion-fa", "--vae-tiling", "--mmap",
             "--params-backend", "disk", "--threads", "6"]
+
+
+def runtime_root(executable):
+    binary = Path(executable).resolve()
+    if binary.parent.name == "bin" and binary.parent.parent.name == "Contents" and binary.parent.parent.parent.suffix == ".app":
+        return binary.parent.parent
+    return binary.parent
+
+
+def audio_command(root, request, output):
+    config = root / "audio-backend.json"
+    backend = json.loads(config.read_text(encoding="utf8"))["backend"] if config.exists() else "cuda"
+    if backend not in {"cuda", "vulkan", "metal"}:
+        raise ValueError("Unsupported audio backend")
+    if request.get("model") not in ("stable-audio-3-small-music", "stable-audio-3-small-sfx"):
+        raise ValueError("Unsupported audio model")
+    if set(request) != {"model", "prompt", "seed", "duration"} or not isinstance(request["duration"], (int, float)) or not 1 <= request["duration"] <= 120:
+        raise ValueError("Invalid audio request")
+    model_file = root / "models" / request["model"] / "model.gguf"
+    with model_file.open("rb") as source:
+        if source.read(4) != b"GGUF":
+            raise ValueError("Audio model is not a GGUF file")
+    return [str(root / "bin" / ("audiocpp_cli" if backend == "metal" else "audiocpp_cli.exe")), "--task", "gen", "--family", "stable_audio",
+            "--model", str(Path("models") / request["model"] / "model.gguf"), "--backend", backend,
+            "--text", request["prompt"], "--duration-seconds", str(request["duration"]),
+            "--num-inference-steps", "8", "--seed", str(request["seed"]),
+            "--session-option", "stable_audio.mem_saver=true", "--out", str(output)]
 
 
 def cleanup_model_auxiliary(output):
@@ -143,7 +173,7 @@ def cleanup_model_auxiliary(output):
 
 def run(kind, output, encoded, input_image=None):
     request = request_value(encoded)
-    root = Path(sys.executable).resolve().parent
+    root = runtime_root(sys.executable)
     output = Path(output).resolve()
     started = time.monotonic()
     # Never let inference reach accounts or start downloads. All weights must be staged.
@@ -173,19 +203,7 @@ def run(kind, output, encoded, input_image=None):
         # inference remains in the released GGML CUDA backend. Pin deterministic
         # noise rather than requesting the optional nvcc-only RNG helper.
         env["ENGINE_TORCH_SAMPLING_POLICY"] = "default"
-        if request.get("model") not in ("stable-audio-3-small-music", "stable-audio-3-small-sfx"):
-            raise ValueError("Unsupported audio model")
-        if set(request) != {"model", "prompt", "seed", "duration"} or not isinstance(request["duration"], (int, float)) or not 1 <= request["duration"] <= 120:
-            raise ValueError("Invalid audio request")
-        model_file = root / "models" / request["model"] / "model.gguf"
-        with model_file.open("rb") as source:
-            if source.read(4) != b"GGUF":
-                raise ValueError("Audio model is not a GGUF file")
-        command = [str(root / "bin/audiocpp_cli.exe"), "--task", "gen", "--family", "stable_audio",
-                   "--model", str(Path("models") / request["model"] / "model.gguf"), "--backend", "cuda",
-                   "--text", request["prompt"], "--duration-seconds", str(request["duration"]),
-                   "--num-inference-steps", "8", "--seed", str(request["seed"]),
-                   "--session-option", "stable_audio.mem_saver=true", "--out", str(output)]
+        command = audio_command(root, request, output)
     elif kind == "model":
         from hunyuan import command as hunyuan_command
         command = hunyuan_command(root, request, output, input_image)

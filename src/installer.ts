@@ -1,24 +1,23 @@
-import {mkdir,readFile,writeFile,rename,open,unlink,lstat,statfs,cp,access,readdir,rm} from 'node:fs/promises';
+import {mkdir,readFile,writeFile,rename,open,unlink,lstat,statfs,cp,access,readdir,rm,chmod} from 'node:fs/promises';
 import {createReadStream,createWriteStream} from 'node:fs';
 import {createHash,randomUUID} from 'node:crypto';
 import {pipeline} from 'node:stream/promises';
 import path from 'node:path';
 import os from 'node:os';
 import yauzl from 'yauzl';
-import audioAssets from '../scripts/audio-assets.json' with {type:'json'};
-import qwenAssets from '../scripts/qwen-assets.json' with {type:'json'};
+import * as tar from 'tar';
+import {currentHost,installationPlan} from './platform.ts';
 import audioRuntime from '../plugin/audio-runtime.json' with {type:'json'};
 
 export interface Asset {name:string;folder:string;size:number;sha256:string;url:string}
-const python:Asset={name:'python-3.11.9-embed-amd64.zip',folder:'downloads',size:11249023,sha256:'009d6bf7e3b2ddca3d784fa09f90fe54336d5b60f0e0f305c37f400bf83cfd3b',url:'https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip'};
 type Progress={active:boolean;model:string;phase:string;file?:string;completed:number;total:number;error?:string};
 let progress:Progress={active:false,model:'',phase:'idle',completed:0,total:0};
 let controller:AbortController|undefined;
 export const installation=()=>({...progress});
 export function cancelInstallation(){controller?.abort();return installation();}
 export async function modelHome(){
- if(process.platform!=='win32'||process.arch!=='x64')throw Error('This tested runtime profile currently supports Windows x64 with an NVIDIA GPU.');
- try{await access('D:/');return 'D:/Genex-Local-Models';}catch{return path.join(os.homedir(),'Genex-Local-Models');}
+ if(process.platform==='win32')try{await access('D:/');return 'D:/Genex-Local-Models';}catch{}
+ return path.join(os.homedir(),'Genex-Local-Models');
 }
 export function child(root:string,relative:string){
  const portable=relative.replaceAll('\\','/');
@@ -86,26 +85,92 @@ export async function extractZip(archive:string,target:string,signal:AbortSignal
      const dir=path.dirname(entry.fileName);if(dir!=='.')await directory(target,dir);
      const stream=await new Promise<NodeJS.ReadableStream>((resolve,reject)=>zip.openReadStream(entry,(error,stream)=>error||!stream?reject(error):resolve(stream)));
      await pipeline(stream,createWriteStream(file,{flags:'wx'}),{signal});
+     if(process.platform!=='win32')await chmod(file,(entry.externalFileAttributes>>>16)&0o111?0o755:0o644);
     }
     zip.readEntry();
    })().catch(fail);});zip.readEntry();
   });
  });
 }
-function assetsFor(model:string):Asset[]{
- if(model==='qwen-image-2.1-turbo')return qwenAssets;
- if(model==='hunyuan3d-2-turbo')throw Error('Hunyuan3D uses the separately provisioned Windows Portable runtime. Complete its verified CUDA texture setup before assigning it; generation never installs dependencies.');
- if(model==='stable-audio-3-small-music'||model==='stable-audio-3-small-sfx')return audioAssets.filter(a=>a.folder==='downloads'||a.folder.endsWith(model));
- throw Error('Unknown reviewed model.');
+/** Preflight the entire archive before extraction. Python's internal command aliases
+ * are omitted; the declared interpreter is the real bin/python3.11 file. */
+export async function extractTar(archive:string,target:string,signal:AbortSignal){
+ let count=0,total=0;
+ const validate=(name:string,entry:tar.ReadEntry)=>{
+  signal.throwIfAborted();const relative=name.replace(/^(\.\/)+/,'').replace(/\/$/,'');
+  if(relative===''||relative==='.')return false;
+  child(target,relative);
+  if(/[:\\]/.test(relative)||++count>20000||(total+=entry.size)>4*1024**3)throw Error('Unsafe or oversized archive.');
+  if(entry.type==='SymbolicLink'){
+   // Reject escaping links even though no links are ever extracted.
+   if(!entry.linkpath||path.posix.isAbsolute(entry.linkpath))throw Error('Unsafe archive link.');
+   child(target,path.posix.join(path.posix.dirname(relative),entry.linkpath));return false;
+  }
+  if(!['Directory','File','OldFile'].includes(entry.type))throw Error('Unsupported archive entry.');
+  return true;
+ };
+ let invalid:unknown;
+ await tar.t({file:archive,strict:true,onReadEntry:entry=>{try{validate(entry.path,entry);}catch(error){invalid??=error;}}});
+ if(invalid)throw invalid;
+ signal.throwIfAborted();await mkdir(target,{recursive:true});
+ await tar.x({file:archive,cwd:target,strict:true,preservePaths:false,
+  filter:(_name,entry)=>!signal.aborted&&['Directory','File','OldFile'].includes((entry as tar.ReadEntry).type),
+  onReadEntry:entry=>{entry.mode=(entry.mode??0o644)&0o755;}});
+ signal.throwIfAborted();
+}
+/** Stage only reviewed interpreters/libraries, never a server or install script. */
+export async function prepareRuntime(plan:ReturnType<typeof installationPlan>,files:Map<string,string>,stage:string,signal:AbortSignal){
+ const root=path.join(stage,'runtime'),pythonStage=path.join(stage,'python');
+ const extract=(archive:string,target:string)=>archive.endsWith('.tar.gz')?extractTar(archive,target,signal):extractZip(archive,target,signal);
+ await extract(files.get(plan.python.name)!,pythonStage);
+ await cp(plan.apple?path.join(pythonStage,'python'):pythonStage,root,{recursive:true,errorOnExist:true,force:false});
+ for(const asset of plan.assets.filter(a=>a.folder==='downloads')){
+  const unpack=path.join(stage,asset.name);await extract(files.get(asset.name)!,unpack);
+  const destination=path.join(root,plan.family==='qwen'?'sd-cpp':'bin');await mkdir(destination,{recursive:true});
+  for(const file of await readdir(unpack)){
+   const source=path.join(unpack,file);
+   if(!(await lstat(source)).isFile())continue;
+   if(file.toLowerCase().endsWith('.dll')||file.endsWith('.dylib')||file.endsWith('.txt')||/^licen[cs]e/i.test(file)||(file===plan.executable&&(plan.backend!=='cuda'||plan.family!=='audio')))
+    await cp(source,path.join(destination,file),{errorOnExist:true,force:false});
+  }
+ }
+ if(plan.family==='audio'&&plan.backend==='cuda'){
+  const packageRoot=import.meta.filename.endsWith('.ts')?path.resolve(import.meta.dirname,'../plugin'):import.meta.dirname;
+  const source=path.join(packageRoot,'native/win32-x64/audiocpp_cli.exe');
+  if(await sha(source,signal)!==audioRuntime.sha256)throw Error('Bundled audio runtime digest differs.');
+  await cp(source,path.join(root,'bin/audiocpp_cli.exe'));
+ }
+ return root;
+}
+async function regularFiles(root:string):Promise<string[]>{
+ const result:string[]=[];
+ for(const entry of await readdir(root,{withFileTypes:true})){
+  const file=path.join(root,entry.name);
+  if(entry.isDirectory())result.push(...await regularFiles(file));
+  else if(entry.isFile())result.push(file);else throw Error('Staged runtime contains a link or special file.');
+ }
+ return result;
 }
 export function startInstallation(model:string){
- const assets=assetsFor(model);
+ const plan=installationPlan(model);
  if(progress.active)throw Error('A model installation is already running.');
- controller=new AbortController();progress={active:true,model,phase:'preparing',completed:0,total:assets.reduce((n,a)=>n+a.size,python.size)};
- void install(model,assets,controller.signal).catch(error=>{progress.phase=controller?.signal.aborted?'cancelled':'failed';progress.error=String(error);}).finally(()=>{progress.active=false;controller=undefined;});
+ controller=new AbortController();progress={active:true,model,phase:'preparing',completed:0,total:plan.assets.reduce((n,a)=>n+a.size,plan.python.size)};
+ void install(model,controller.signal).catch(error=>{progress.phase=controller?.signal.aborted?'cancelled':'failed';progress.error=String(error);}).finally(()=>{progress.active=false;controller=undefined;});
  return installation();
 }
-async function install(model:string,assets:Asset[],signal:AbortSignal){
+async function install(model:string,signal:AbortSignal){
+ const host=currentHost(),family=model==='qwen-image-2.1-turbo'?'qwen':'audio';
+ const bundle=path.join(os.homedir(),'Genex-Local-Models',family+(host.platform==='darwin'?'.app':''));
+ const root=host.platform==='darwin'?path.join(bundle,'Contents'):bundle;
+ let legacyCuda=false;
+ if(host.platform==='win32'){
+  try{legacyCuda=JSON.parse(await readFile(path.join(root,family==='qwen'?'runtime.json':'audio-backend.json'),'utf8')).backend!=='vulkan';}
+  catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;
+   if(family==='audio')try{await access(path.join(root,'audio-lpac.json'));legacyCuda=true;}catch{}
+  }
+ }
+ const plan=installationPlan(model,host,legacyCuda),{assets,python}=plan;
+ progress.total=assets.reduce((n,a)=>n+a.size,python.size);
  const base=await modelHome();await mkdir(base,{recursive:true});
  const lock=path.join(base,'setup.lock'),lease=await open(lock,'wx',0o600).catch(()=>{throw Error('Another setup owns setup.lock. Wait for it to finish before retrying.');});
  try{
@@ -115,35 +180,19 @@ async function install(model:string,assets:Asset[],signal:AbortSignal){
    progress.phase='downloading and verifying';progress.file=asset.name;
    files.set(asset.name,await downloadAsset(base,asset,signal,bytes=>{progress.completed=complete+bytes;}));complete+=asset.size;
   }
-  const family=model==='qwen-image-2.1-turbo'?'qwen':'audio';
   // audio.cpp normalizes paths through every ancestor. Standard Windows C: profile
   // ancestors support that inside LPAC; ordinary secondary-drive roots often do not.
-  const root=path.join(os.homedir(),'Genex-Local-Models',family);
-  await mkdir(root,{recursive:true});
+  await directory(os.homedir(),path.relative(os.homedir(),root));
   const stage=path.join(base,'setup-'+randomUUID());await mkdir(stage);
   progress.phase='extracting runtime';
   // Every archive is verified first. Extract to a fresh directory before exposing any file.
-  await extractZip(files.get(python.name)!,path.join(stage,'python'),signal);
+  const stagedRuntime=await prepareRuntime(plan,files,stage,signal);
   const copies:{source:string;destination:string}[]=[];
-  try{await access(path.join(root,'python.exe'));}catch{
-   for(const file of await readdir(path.join(stage,'python')))copies.push({source:path.join(stage,'python',file),destination:path.join(root,file)});
-  }
-  for(const asset of assets.filter(asset=>asset.folder==='downloads')){
-   const unpack=path.join(stage,asset.name);await extractZip(files.get(asset.name)!,unpack,signal);
-   const destination=path.join(root,family==='qwen'?'sd-cpp':'bin');await mkdir(destination,{recursive:true});
-   const executable=family==='qwen'?'sd-cli.exe':'audiocpp_cli.exe';
-   for(const file of await readdir(unpack))if(file.toLowerCase().endsWith('.dll')||(file===executable&&family!=='audio')||/^licen[cs]e/i.test(file))copies.push({source:path.join(unpack,file),destination:path.join(destination,file)});
-  }
-  if(family==='audio'){
-   const packageRoot=import.meta.filename.endsWith('.ts')?path.resolve(import.meta.dirname,'../plugin'):import.meta.dirname;
-   const source=path.join(packageRoot,'native/win32-x64/audiocpp_cli.exe');
-   if(await sha(source,signal)!==audioRuntime.sha256)throw Error('Bundled audio runtime digest differs.');
-   copies.push({source,destination:path.join(root,'bin/audiocpp_cli.exe')});
-  }
+  for(const file of await regularFiles(stagedRuntime))copies.push({source:file,destination:path.join(root,path.relative(stagedRuntime,file))});
   for(const asset of assets.filter(asset=>asset.folder!=='downloads'))copies.push({source:files.get(asset.name)!,destination:path.join(root,'models',model,asset.name)});
   let needed=0;
   for(const file of copies){
-   try{const info=await lstat(file.destination);if(!info.isFile()||info.size!==(await lstat(file.source)).size)throw Error('Existing runtime differs; preserved for inspection.');}
+   try{const info=await lstat(file.destination);if(!info.isFile()||info.size!==(await lstat(file.source)).size||await sha(file.destination,signal)!==await sha(file.source,signal))throw Error('Existing runtime differs; preserved for inspection.');}
    catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;needed+=(await lstat(file.source)).size;}
   }
   const disk=await statfs(root),reserve=path.parse(root).root.toLowerCase()==='c:\\'?15*1024**3:2*1024**3;
@@ -159,9 +208,13 @@ async function install(model:string,assets:Asset[],signal:AbortSignal){
    if(await sha(destination,signal)!==asset.sha256)throw Error('Installed model digest differs; not activated.');
   }
   if(family==='qwen'){
-   await writeFile(path.join(root,'runtime.json'),JSON.stringify({sd_cli:'sd-cpp/sd-cli.exe',download_digests_verified:true}));
+   await writeFile(path.join(root,'runtime.json'),JSON.stringify({sd_cli:'sd-cpp/'+plan.executable,backend:plan.backend,download_digests_verified:true}));
   }
-  if(family==='audio')await writeFile(path.join(root,'audio-lpac.json'),JSON.stringify(audioRuntime));
+  if(family==='audio'){
+   if(plan.backend==='cuda')await writeFile(path.join(root,'audio-lpac.json'),JSON.stringify(audioRuntime));
+   await writeFile(path.join(root,'audio-backend.json'),JSON.stringify({backend:plan.backend}));
+  }
+  if(plan.apple)await writeFile(path.join(root,'Info.plist'),`<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>dev.theastray.genex-local-models.${family}</string><key>CFBundleExecutable</key><string>bin/python3.11</string></dict></plist>`);
   progress.phase='ready';progress.file=undefined;
   await writeFile(path.join(root,model+'.ready.json'),JSON.stringify({model,verified:true,at:new Date().toISOString(),assets}));
   const staged=path.resolve(stage),owned=path.resolve(base)+path.sep;
