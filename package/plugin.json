@@ -1,7 +1,7 @@
 {
   "apiVersion": 3,
   "id": "theastraydev-local-models",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "name": "Local Models",
   "publisher": "TheAstrayDev",
   "description": "Experimental local images/audio on Windows x64 Vulkan (AMD/NVIDIA) and Apple Silicon Metal. Textured Hunyuan3D remains Windows/NVIDIA only. Requires a development native-job host; not stock Genex 0.1.7.",

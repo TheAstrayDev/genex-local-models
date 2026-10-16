@@ -51,7 +51,7 @@ async function state(ctx:PluginContext,host:Host){
 
 /** Bounded metadata-only discovery. A filename is not evidence a model can perform every task. */
 async function discover(){
- const roots=[path.join(os.homedir(),'.cache/huggingface/hub'),path.join(os.homedir(),'.lmstudio/models'),path.join(os.homedir(),'.cache/lm-studio/models'),path.join(os.homedir(),'.ollama/models/manifests'),'D:/hf-cache/hub','D:/models'];
+ const roots=[path.join(os.homedir(),'.cache/huggingface/hub'),path.join(os.homedir(),'.lmstudio/models'),path.join(os.homedir(),'.cache/lm-studio/models'),path.join(os.homedir(),'.ollama/models/manifests'),...(process.platform==='win32'?['D:/hf-cache/hub','D:/models']:[])];
  const found:{id:string;source:string;supported:boolean}[]=[];
  for(const root of roots){
   try{

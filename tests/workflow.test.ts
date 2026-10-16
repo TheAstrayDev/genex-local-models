@@ -57,6 +57,17 @@ test('Mac hides incompatible 3D setup and rejects the route before an expensive 
  assert.equal(status.models.find((m:any)=>m.id==='qwen-image-2.1-turbo').supported,true);
 });
 
+test('install review discloses cache, runtime folder and license without starting a native job',async t=>{
+ const f=await fixture(t);
+ const review=await f.plugin.review!('install',{model:'qwen-image-2.1-turbo'},f.ctx);
+ assert.match(review.message!,/Download cache:/);assert.match(review.message!,/Working files:/);
+ assert.match(review.message!,/Genex-Local-Models/);assert.match(review.message!,/vulkan/);
+ assert.match(review.message!,/Original model licenses/);assert.equal(f.calls.length,0);
+ const mac=await fixture(t,{platform:'darwin',arch:'arm64',release:'25.0.0'});
+ await assert.rejects(mac.plugin.review!('install',{model:'hunyuan3d-2-turbo'},mac.ctx),/not available/);
+ assert.equal(mac.calls.length,0);
+});
+
 test('image job to 3D preserves the exact UUID and does not regenerate the reference',async t=>{
  const f=await fixture(t),result:any=await f.plugin.tool!('generate-model',{name:'car',imageJobId:imageId},f.ctx);
  assert.equal(f.calls.filter(c=>c.method==='native.run').length,1);

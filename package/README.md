@@ -1,10 +1,24 @@
 # Local Models for Genex
 
-Generate game images, textures, sound, music and static textured 3D on a Windows NVIDIA PC. Studio's coding agent calls the assigned local model, receives project-scoped assets and integrates them into the game. Only one GPU generation job runs at a time; its processes exit when finished.
+Generate local game images, textures, sound and music with platform-specific Metal or Vulkan runtimes. Windows/NVIDIA also has an experimental textured Hunyuan3D route. Studio's coding agent calls the assigned model and integrates its project-scoped outputs. Only one GPU generation job runs at a time; its processes exit when finished.
 
 **Development-host prerelease. This package does not install or run on stock Genex 0.1.7, or current unmodified `dev`.** Its 35-minute Hunyuan recipe needs an unreleased native-job timeout extension. The tested local host also exposes retained native outputs in Assets before a build lands or after it is canceled. The catalog submission is a draft, not a ready-to-install listing. See [Compatibility](docs/compatibility.md).
 
-Plugin ID: `theastraydev-local-models`. Publisher: `TheAstrayDev`. Version: `0.1.11`. This is the first catalog submission. Version 0.1.9 was an initial public review build; 0.1.10 fixed its Linux CI path-validation failure, and 0.1.11 tightens the lead's asset workflow. Existing release artifacts are unchanged. The bare `local-models` ID remains a local prototype. The public ID follows the catalog's GitHub-owner naming rule. Do not enable the public package beside the old prototype: their independent plugin locks would not serialize work with one another. This package does not migrate or remove prototype data.
+Plugin ID: `theastraydev-local-models`. Publisher: `TheAstrayDev`. Version: `0.1.12`. This is the first catalog submission. Version 0.1.12 adds experimental Metal/Vulkan profiles and explicit setup locations; 0.1.11's asset orchestration remains intact. Existing release artifacts are unchanged. The bare `local-models` ID remains a local prototype. The public ID follows the catalog's GitHub-owner naming rule. Do not enable the public package beside the old prototype: their independent plugin locks would not serialize work with one another. This package does not migrate or remove prototype data.
+
+## Platform availability
+
+| Computer | Images / textures | Sound / music | Textured Hunyuan3D |
+| --- | --- | --- | --- |
+| Windows x64, AMD with a current Vulkan driver | Vulkan | Vulkan | Unavailable |
+| Windows x64, NVIDIA | Vulkan on new installs; existing CUDA setup preserved | Vulkan on new installs; existing CUDA setup preserved | Separate CUDA Portable setup |
+| Apple Silicon, macOS 26+ | Metal | Metal | Unavailable |
+| Apple Silicon, macOS 13.3 to 15 | Unavailable with the pinned image binary | Metal | Unavailable |
+| Intel Mac, Linux, Windows ARM | Unavailable | Unavailable | Unavailable |
+
+These are implemented experimental profiles, not a claim of validated inference on every listed GPU. Host OS/architecture/version gates setup and routes. The panel shows driver/memory requirements but does not query the GPU or certify available VRAM. Qwen has about 10 GB of weights; plan for 12 GB VRAM or 24 GB unified memory. The pinned macOS image CLI has a macOS 26 minimum in its Mach-O header; audio has 13.3. A generic Metal backend does not establish that every model fits memory or finishes within five minutes.
+
+Unsupported models have no Install button and cannot be selected for new work. Existing assignments are retained and blocked explicitly when incompatible. Hunyuan's current texture adapter uses Windows CUDA extensions; neither a Mac/ROCm Hunyuan port nor automatic CPU fallback is claimed. Platform checks inside a plugin cannot hide its entry in the host catalog: catalog-level OS/GPU filtering still needs an agreed host contract.
 
 ## What it does
 
@@ -57,9 +71,17 @@ Version 0.1.11 rewrites the always-present lead instructions and adds the `asset
 
 **Do not try this package on stock Genex yet.** On a compatible development host, install the prebuilt `package/` directory using the official plugin workflow, approve its disclosed capabilities, then enable it. No npm installation or build hook runs inside Genex. No Hugging Face account/token is used by these pinned public GGUF download routes. Original model terms still apply.
 
-The user-confirmed Install action supports Qwen and Stable Audio. It verifies pinned sizes and SHA-256, resumes bounded downloads, checks ZIP paths, stages files and preserves different existing files. Downloads prefer `D:/Genex-Local-Models` when D: exists, otherwise `~/Genex-Local-Models`. Qwen/audio runtimes are installed under `~/Genex-Local-Models/qwen` and `/audio`. Setup preserves 15 GiB free on C: and 2 GiB on other drives. Model files require many gigabytes; this is not a small plugin-only download. Cancellation preserves partial downloads for retry.
+The user-confirmed Install action supports Qwen and Stable Audio. Installing the plugin or assigning a route does not download weights. After confirmation, the plugin downloads and verifies the selected runtime and weights, resumes bounded downloads, checks ZIP/tar paths, stages regular files and preserves different existing files. Python command symlinks are omitted from the macOS archive; the manifest names its real interpreter. The panel and confirmation review show the locations before setup.
 
-Hunyuan's Install action currently returns a clear unsupported-setup error. Its separately prepared runtime is detected at `~/Genex-Local-Models/hunyuan/python.exe` or `D:/Genex-Local-Models/hunyuan/python.exe`; it needs the verified portable code, weights, compiled texture extensions and loader preparation described in [runtime notes](docs/runtimes.md). A turnkey Hunyuan installer and a clean-machine acceptance test are outstanding. Arbitrary existing Ollama/LM Studio/Hugging Face models cannot be used merely by selecting their filename.
+| Location | Windows | macOS |
+| --- | --- | --- |
+| Download cache | `D:\Genex-Local-Models` if D: exists, otherwise `%USERPROFILE%\Genex-Local-Models` | `~/Genex-Local-Models` |
+| Qwen runtime and working weights | `%USERPROFILE%\Genex-Local-Models\qwen` | `~/Genex-Local-Models/qwen.app/Contents` |
+| Audio runtime and working weights | `%USERPROFILE%\Genex-Local-Models\audio` | `~/Genex-Local-Models/audio.app/Contents` |
+
+Weights live under each runtime's `models/<model-id>/` directory. Cached downloads and working weights are separate copies; account for both when planning disk space. The macOS `.app` layout keeps Python, its libraries, model files and child CLIs inside the host's existing native sandbox boundary. It does not launch a GUI application or change the Genex host. Setup preserves 15 GiB free on C: and 2 GiB on other drives. Cancellation preserves partial downloads for retry. After installation, choose the model for a route and save assignments; Studio can then call it. Model processes start only for a request and exit afterward.
+
+Hunyuan currently needs separate setup. Its Install button is absent; the backend also refuses automatic setup. The prepared runtime is detected at `~/Genex-Local-Models/hunyuan/python.exe` or `D:/Genex-Local-Models/hunyuan/python.exe` on the compatible Windows host. It needs verified portable code, checkpoints, compiled texture extensions and loader preparation described in [runtime notes](docs/runtimes.md). A turnkey Hunyuan installer and a clean-machine acceptance test are outstanding. Arbitrary existing Ollama/LM Studio/Hugging Face models cannot be used merely by selecting their filename.
 
 ## Access and data
 
@@ -95,7 +117,7 @@ From a compatible Genex checkout run `npm run plugin:doctor -- /path/to/package`
 
 ## License and attribution
 
-Plugin authoring code: [MIT](LICENSE), TheAstrayDev. Genex SDK, panel bridge and adapted skill topics retain [Genex's MIT notice](vendor/LICENSE.genex). yauzl and pend retain their MIT notices in the prebuilt package. The Windows audio.cpp CLI is an Apache-2.0 derivative at the revision in `plugin/audio-runtime.json`; its LPAC path-only modification, source recipe and full license notices are retained. `scripts/patch-audio-source.py` documents the changes. The copied background-removal preprocessing retains the rembg notice.
+Plugin authoring code: [MIT](LICENSE), TheAstrayDev. Genex SDK, panel bridge and adapted skill topics retain [Genex's MIT notice](vendor/LICENSE.genex). Bundled ZIP/tar dependencies retain their MIT/ISC notices in the prebuilt package. Windows audio.cpp compatibility builds are Apache-2.0 derivatives at the pinned revisions; their LPAC path-only modification and build recipes are public. `scripts/patch-audio-source.py` documents the changes. External Python distributions retain their Python and component notices. The copied background-removal preprocessing retains the rembg notice.
 
 External runtimes and model weights are separate downloads and retain their own terms: [Qwen](https://github.com/QwenLM/Qwen-Image-2.1), [Stable Audio](https://github.com/Stability-AI/stable-audio-3), [audio.cpp](https://github.com/0xShug0/audio.cpp), [Hunyuan3D](https://github.com/Tencent-Hunyuan/Hunyuan3D-2) and [Windows Portable](https://github.com/YanWenKun/Hunyuan3D-2-WinPortable). The plugin's MIT license does not relicense those weights, the portable GPL runtime or auxiliary components.
 

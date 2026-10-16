@@ -39,7 +39,7 @@ try{
  assert.equal(manifest.id,id);assert.notEqual(scan.verdict,'dangerous');
  // A synthetic previous version proves same-identity assignment preservation, not historical stock acceptance.
  const previous=path.join(evidence,'previous');await cp(source,previous,{recursive:true});
- await writeFile(path.join(previous,'plugin.json'),JSON.stringify({...manifest,version:'0.1.10'},null,2));
+ await writeFile(path.join(previous,'plugin.json'),JSON.stringify({...manifest,version:'0.1.11'},null,2));
  await registry.installLocal(previous,'local',manifest.capabilities,undefined,await scanPackage(previous,await inspectPackage(previous)));
  await registry.setEnabled(id,true);
  const settings={image:null,texture:'qwen-image-2.1-turbo',sfx:null,music:'stable-audio-3-small-music',model:null};
@@ -71,6 +71,6 @@ try{
  await access(path.join(root,'data',id,'assignments.json'));assert.equal(nativeRuns,0);
  const referenceFiles=manifest.skills.reduce((count:number,skill:any)=>count+(skill.references?.length??0),0);
  assert.equal(referenceFiles,5);
- const result={passed:true,version:manifest.version,id,freshRegistryInstall:true,harmlessToolCalls:['status','assets'],sameBindingEnableAndUse:true,syntheticPreviousVersion:'0.1.10',assignmentsPreserved:true,disabledToolsAndSkillsWithdrawn:true,removedToolsAndSkillsWithdrawn:true,removedStoragePreserved:true,fileSkills:checked.length,referenceFiles,orchestrationReferenceReadable:true,crossSkillReferenceRejected:true,nativeRuns,serviceCalls,accountFlow:'none',realAppChat:false,realInference:false};
+ const result={passed:true,version:manifest.version,id,freshRegistryInstall:true,harmlessToolCalls:['status','assets'],sameBindingEnableAndUse:true,syntheticPreviousVersion:'0.1.11',assignmentsPreserved:true,disabledToolsAndSkillsWithdrawn:true,removedToolsAndSkillsWithdrawn:true,removedStoragePreserved:true,fileSkills:checked.length,referenceFiles,orchestrationReferenceReadable:true,crossSkillReferenceRejected:true,nativeRuns,serviceCalls,accountFlow:'none',realAppChat:false,realInference:false};
  await writeFile(path.join(evidence,'validation.json'),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify({...result,evidence},null,2));
 }finally{registry.cancel();}

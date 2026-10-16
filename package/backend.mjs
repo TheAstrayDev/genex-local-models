@@ -4781,7 +4781,7 @@ async function prepareRuntime(plan, files, stage, signal) {
     for (const file of await readdir(unpack)) {
       const source = path3.join(unpack, file);
       if (!(await lstat(source)).isFile()) continue;
-      if (file.toLowerCase().endsWith(".dll") || file.endsWith(".dylib") || file.endsWith(".txt") || /^licen[cs]e/i.test(file) || file === plan.executable && (plan.backend !== "cuda" || plan.family !== "audio"))
+      if (file.toLowerCase().endsWith(".dll") || file.endsWith(".dylib") || file.endsWith(".txt") || /^licen[cs]e/i.test(file) || file === "provenance.json" || file === plan.executable && (plan.backend !== "cuda" || plan.family !== "audio"))
         await cp(source, path3.join(destination, file), { errorOnExist: true, force: false });
     }
   }
@@ -4881,9 +4881,10 @@ async function install(model, signal) {
         continue;
       } catch {
       }
-      await mkdir2(path3.dirname(file.destination), { recursive: true });
-      const partial = file.destination + ".copying";
-      await cp(file.source, partial);
+      const parent = path3.relative(root, path3.dirname(file.destination));
+      if (parent) await directory(root, parent);
+      const partial = file.destination + ".copying-" + randomUUID();
+      await cp(file.source, partial, { errorOnExist: true, force: false });
       await rename(partial, file.destination);
     }
     for (const asset of assets.filter((asset2) => asset2.folder !== "downloads")) {
@@ -4897,7 +4898,7 @@ async function install(model, signal) {
       if (plan.backend === "cuda") await writeFile(path3.join(root, "audio-lpac.json"), JSON.stringify(audio_runtime_default));
       await writeFile(path3.join(root, "audio-backend.json"), JSON.stringify({ backend: plan.backend }));
     }
-    if (plan.apple) await writeFile(path3.join(root, "Info.plist"), `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>dev.theastray.genex-local-models.${family}</string><key>CFBundleExecutable</key><string>bin/python3.11</string></dict></plist>`);
+    if (plan.apple) await writeFile(path3.join(root, "Info.plist"), `<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>dev.theastray.genex-local-models.${family}</string><key>CFBundleExecutable</key><string>bin/python3.11</string></dict></plist>`);
     progress.phase = "ready";
     progress.file = void 0;
     await writeFile(path3.join(root, model + ".ready.json"), JSON.stringify({ model, verified: true, at: (/* @__PURE__ */ new Date()).toISOString(), assets }));
@@ -5076,7 +5077,7 @@ async function state(ctx, host) {
   };
 }
 async function discover() {
-  const roots = [path4.join(os4.homedir(), ".cache/huggingface/hub"), path4.join(os4.homedir(), ".lmstudio/models"), path4.join(os4.homedir(), ".cache/lm-studio/models"), path4.join(os4.homedir(), ".ollama/models/manifests"), "D:/hf-cache/hub", "D:/models"];
+  const roots = [path4.join(os4.homedir(), ".cache/huggingface/hub"), path4.join(os4.homedir(), ".lmstudio/models"), path4.join(os4.homedir(), ".cache/lm-studio/models"), path4.join(os4.homedir(), ".ollama/models/manifests"), ...process.platform === "win32" ? ["D:/hf-cache/hub", "D:/models"] : []];
   const found = [];
   for (const root of roots) {
     try {

@@ -130,7 +130,7 @@ export async function prepareRuntime(plan:ReturnType<typeof installationPlan>,fi
   for(const file of await readdir(unpack)){
    const source=path.join(unpack,file);
    if(!(await lstat(source)).isFile())continue;
-   if(file.toLowerCase().endsWith('.dll')||file.endsWith('.dylib')||file.endsWith('.txt')||/^licen[cs]e/i.test(file)||(file===plan.executable&&(plan.backend!=='cuda'||plan.family!=='audio')))
+   if(file.toLowerCase().endsWith('.dll')||file.endsWith('.dylib')||file.endsWith('.txt')||/^licen[cs]e/i.test(file)||file==='provenance.json'||(file===plan.executable&&(plan.backend!=='cuda'||plan.family!=='audio')))
     await cp(source,path.join(destination,file),{errorOnExist:true,force:false});
   }
  }
@@ -180,8 +180,8 @@ async function install(model:string,signal:AbortSignal){
    progress.phase='downloading and verifying';progress.file=asset.name;
    files.set(asset.name,await downloadAsset(base,asset,signal,bytes=>{progress.completed=complete+bytes;}));complete+=asset.size;
   }
-  // audio.cpp normalizes paths through every ancestor. Standard Windows C: profile
-  // ancestors support that inside LPAC; ordinary secondary-drive roots often do not.
+  // Keep managed runtimes under the user's home. CUDA and Vulkan audio builds
+  // both need the reviewed LPAC path fix; moving to C: alone is insufficient.
   await directory(os.homedir(),path.relative(os.homedir(),root));
   const stage=path.join(base,'setup-'+randomUUID());await mkdir(stage);
   progress.phase='extracting runtime';
@@ -200,8 +200,10 @@ async function install(model:string,signal:AbortSignal){
   progress.phase='installing verified files';
   for(const file of copies){
    signal.throwIfAborted();try{await access(file.destination);continue;}catch{}
-   await mkdir(path.dirname(file.destination),{recursive:true});
-   const partial=file.destination+'.copying';await cp(file.source,partial);await rename(partial,file.destination);
+   const parent=path.relative(root,path.dirname(file.destination));
+   if(parent)await directory(root,parent);
+   const partial=file.destination+'.copying-'+randomUUID();
+   await cp(file.source,partial,{errorOnExist:true,force:false});await rename(partial,file.destination);
   }
   for(const asset of assets.filter(asset=>asset.folder!=='downloads')){
    const destination=path.join(root,'models',model,asset.name);
@@ -214,7 +216,7 @@ async function install(model:string,signal:AbortSignal){
    if(plan.backend==='cuda')await writeFile(path.join(root,'audio-lpac.json'),JSON.stringify(audioRuntime));
    await writeFile(path.join(root,'audio-backend.json'),JSON.stringify({backend:plan.backend}));
   }
-  if(plan.apple)await writeFile(path.join(root,'Info.plist'),`<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>dev.theastray.genex-local-models.${family}</string><key>CFBundleExecutable</key><string>bin/python3.11</string></dict></plist>`);
+  if(plan.apple)await writeFile(path.join(root,'Info.plist'),`<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>dev.theastray.genex-local-models.${family}</string><key>CFBundleExecutable</key><string>bin/python3.11</string></dict></plist>`);
   progress.phase='ready';progress.file=undefined;
   await writeFile(path.join(root,model+'.ready.json'),JSON.stringify({model,verified:true,at:new Date().toISOString(),assets}));
   const staged=path.resolve(stage),owned=path.resolve(base)+path.sep;

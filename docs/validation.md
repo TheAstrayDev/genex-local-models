@@ -4,8 +4,8 @@ This first public package uses a new publisher-prefixed identity. Evidence from 
 
 ## Public-package checks
 
-- 26 TypeScript tests: route and argument boundaries, queues/cancellation, download integrity/archive paths, project-scoped asset restoration, continuation and runtime integration evidence.
-- 13 Python tests: native RGBA prompts and read-only alpha validation, one bounded retry, model command boundaries, reference masks, failed paint handling and UV-split normal transfer.
+- 31 TypeScript tests: route and argument boundaries, queues/cancellation, download integrity/archive paths, OS/architecture/version availability, sandbox runtime roots, incompatible-route rejection before generation, confirmed setup disclosures, project-scoped asset restoration, continuation and runtime integration evidence.
+- 14 Python tests: fixed Metal/Vulkan/CUDA commands, native RGBA prompts and read-only alpha validation, one bounded retry, model command boundaries, reference masks, failed paint handling and UV-split normal transfer.
 - TypeScript checking and production build.
 - Disposable real Genex registry: install, enable, harmless `status`/`assets` calls with one unchanged chat binding, all 14 file skills/five references including the new orchestration guide, synthetic previous-version update preserving assignments, disable/remove withdrawal and retained storage. The asset reference is readable through its owner and refused through another skill. No inference, account access or real chat session is used by this fixture.
 - Linux source CI originally failed the existing hostile-path assertion on 0.1.9: POSIX path resolution treated `C:/elsewhere` as a relative child. Version 0.1.10 rejects POSIX, Windows drive/root/UNC and drive-relative absolute forms before resolution on every host. The assertion was preserved and its hostile-input table expanded.
@@ -28,6 +28,7 @@ Version 0.1.11 changes guidance and reference registration. It does not implemen
 - Supported released-host native-job budget and retained-asset behavior.
 - Fresh stock Genex install and harmless real chat call, same-chat activation, public-ID update/remove acceptance in the actual UI.
 - Turnkey Hunyuan setup and clean-machine validation of its portable code/texture extensions/loader.
-- Linux/macOS/non-NVIDIA runtime profiles (not claimed by this release).
+- Real model inference on Apple Silicon/AMD, beyond pinned interpreter/CLI startup and fixture tests.
+- Catalog-level platform visibility, which the current host contract does not implement.
 
 The PR template keeps unverified conditions unchecked. A green catalog identity/history check does not establish any of these runtime properties. The approved-origin artifact publication step also requires a maintainer's review and upload.
