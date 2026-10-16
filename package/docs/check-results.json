@@ -1,6 +1,6 @@
 {
   "passed": true,
-  "version": "0.1.11",
+  "version": "0.1.12",
   "id": "theastraydev-local-models",
   "freshRegistryInstall": true,
   "harmlessToolCalls": [
@@ -8,7 +8,7 @@
     "assets"
   ],
   "sameBindingEnableAndUse": true,
-  "syntheticPreviousVersion": "0.1.10",
+  "syntheticPreviousVersion": "0.1.11",
   "assignmentsPreserved": true,
   "disabledToolsAndSkillsWithdrawn": true,
   "removedToolsAndSkillsWithdrawn": true,
@@ -23,8 +23,8 @@
   "upstreamReference": "06741ab9a9c5ae215272803f61eb2dcd1eff2804",
   "inspectionPatch": "compat/inspection-budget.patch",
   "tests": {
-    "typescript": 26,
-    "python": 13,
+    "typescript": 31,
+    "python": 14,
     "typecheck": true,
     "build": true
   },
@@ -55,6 +55,24 @@
     "agentInstructionsOnly": true,
     "hostEnforcedGate": false,
     "generationCodeChanged": false,
-    "fullAutonomousBuildEvaluated": false
+    "fullAutonomousBuildEvaluated": false,
+    "version": "0.1.11"
+  },
+  "platformUpdate": {
+    "experimental": true,
+    "osArchitectureVersionGates": true,
+    "appleSiliconBackend": "metal",
+    "newWindowsBackend": "vulkan",
+    "existingCudaPreserved": true,
+    "gpuInventoryProbed": false,
+    "fullInferenceOnAppleSilicon": false,
+    "fullInferenceOnAmd": false,
+    "runtimeStartupCi": "https://github.com/TheAstrayDev/genex-local-models/actions/runs/38925242300",
+    "unmodifiedVulkanAudioLpacProbe": "rejected with weakly_canonical access denial",
+    "fixedVulkanAudioLpacProbe": "passed: malformed GGUF reached parser, no ancestor access denial",
+    "catalogPlatformFiltering": false,
+    "longJobIssue": "https://github.com/genex-games/genex-desktop/issues/170",
+    "realVulkanAudioGeneration": "failed before inference: local Windows LPAC sandbox enumerated CPU only; outside sandbox Vulkan enumerated RTX 4070",
+    "vulkanAudioBuild": "https://github.com/TheAstrayDev/genex-local-models/actions/runs/38925241504"
   }
 }

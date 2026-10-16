@@ -134,7 +134,7 @@ def image_command(root, request, output):
             "-p", image_prompt(request), "-o", str(output), "-W", str(request["size"]), "-H", str(request["size"]),
             "--seed", str(request["seed"]), "--steps", "8", "--cfg-scale", "1.0", "--sigmas", "qwen-image-2.1-turbo",
             "--sampling-method", "euler", "--diffusion-fa", "--vae-tiling", "--mmap",
-            "--params-backend", "disk", "--threads", "6"]
+            "--params-backend", "disk", "--threads", "6"] + (["--backend", backend] if backend != "cuda" else [])
 
 
 def runtime_root(executable):

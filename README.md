@@ -18,6 +18,8 @@ Plugin ID: `theastraydev-local-models`. Publisher: `TheAstrayDev`. Version: `0.1
 
 These are implemented experimental profiles, not a claim of validated inference on every listed GPU. Host OS/architecture/version gates setup and routes. The panel shows driver/memory requirements but does not query the GPU or certify available VRAM. Qwen has about 10 GB of weights; plan for 12 GB VRAM or 24 GB unified memory. The pinned macOS image CLI has a macOS 26 minimum in its Mach-O header; audio has 13.3. A generic Metal backend does not establish that every model fits memory or finishes within five minutes.
 
+**Known Windows Vulkan host blocker:** the LPAC-compatible audio runtime can read its model file, but a real generation attempt on the local Windows host reported no Vulkan GPU registered. The same binary enumerates the RTX 4070 outside that sandbox. The plugin does not bypass the sandbox or silently switch to CPU. AMD end-to-end support therefore remains unverified and depends on resolving host GPU/driver visibility. Existing CUDA installations retain their tested path.
+
 Unsupported models have no Install button and cannot be selected for new work. Existing assignments are retained and blocked explicitly when incompatible. Hunyuan's current texture adapter uses Windows CUDA extensions; neither a Mac/ROCm Hunyuan port nor automatic CPU fallback is claimed. Platform checks inside a plugin cannot hide its entry in the host catalog: catalog-level OS/GPU filtering still needs an agreed host contract.
 
 ## What it does

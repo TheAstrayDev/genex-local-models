@@ -1,8 +1,44 @@
 {
- "sd-vulkan":{"name":"sd-vulkan.zip","folder":"downloads","size":30155040,"sha256":"74211cb5c382aec2aeb086b64f2fdf525efec5faec4200a2d3257bc2328954ab","url":"https://github.com/leejet/stable-diffusion.cpp/releases/download/master-964-1d0a58a/sd-master-1d0a58a-bin-win-vulkan-x64.zip"},
- "sd-metal":{"name":"sd-metal.zip","folder":"downloads","size":35213648,"sha256":"45001839e925f98ecd18ef5251725f74cff874eeac4599f1136acba65b26911e","url":"https://github.com/leejet/stable-diffusion.cpp/releases/download/master-964-1d0a58a/sd-master-1d0a58a-bin-Darwin-macOS-26.6.2-arm64.zip"},
- "audio-vulkan":{"name":"audio-vulkan.zip","folder":"downloads","size":61728860,"sha256":"423226fa8a0fd09de8534a6bc146ea8758801c8937e406dafa6bffb6bfb22f73","url":"https://github.com/0xShug0/audio.cpp/releases/download/v0.9.1/audio-v0.9.1-bin-windows-x64-vulkan-portable.zip"},
- "audio-metal":{"name":"audio-metal.tar.gz","folder":"downloads","size":30519606,"sha256":"960436787b84bf137a70ea1713ac460207ef2ac7b2617380fb7a1f4650d1100d","url":"https://github.com/0xShug0/audio.cpp/releases/download/v0.9.1/audio-v0.9.1-bin-macos-arm64-metal.tar.gz"},
- "python-windows":{"name":"python-3.11.9-embed-amd64.zip","folder":"downloads","size":11249023,"sha256":"009d6bf7e3b2ddca3d784fa09f90fe54336d5b60f0e0f305c37f400bf83cfd3b","url":"https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip"},
- "python-macos":{"name":"python-3.11.17-macos-arm64.tar.gz","folder":"downloads","size":27000974,"sha256":"5e656e09fc73c7ae10e4df66e6aa253f1f5980509b3be8a242e883d67a5fdf26","url":"https://github.com/astral-sh/python-build-standalone/releases/download/20261013/cpython-3.11.17%2B20261013-aarch64-apple-darwin-install_only_stripped.tar.gz"}
+  "sd-vulkan": {
+    "name": "sd-vulkan.zip",
+    "folder": "downloads",
+    "size": 30155040,
+    "sha256": "74211cb5c382aec2aeb086b64f2fdf525efec5faec4200a2d3257bc2328954ab",
+    "url": "https://github.com/leejet/stable-diffusion.cpp/releases/download/master-964-1d0a58a/sd-master-1d0a58a-bin-win-vulkan-x64.zip"
+  },
+  "sd-metal": {
+    "name": "sd-metal.zip",
+    "folder": "downloads",
+    "size": 35213648,
+    "sha256": "45001839e925f98ecd18ef5251725f74cff874eeac4599f1136acba65b26911e",
+    "url": "https://github.com/leejet/stable-diffusion.cpp/releases/download/master-964-1d0a58a/sd-master-1d0a58a-bin-Darwin-macOS-26.6.2-arm64.zip"
+  },
+  "audio-vulkan": {
+    "name": "audio-vulkan-cf124a6-lpac1.zip",
+    "folder": "downloads",
+    "size": 18727558,
+    "sha256": "9ec767956fbcff32eecfe67069787b40727043aab535918e3e0fce783ca43093",
+    "url": "https://github.com/TheAstrayDev/genex-local-models/releases/download/runtime-audio-vulkan-cf124a6-lpac1/audio-vulkan-cf124a6-lpac1.zip"
+  },
+  "audio-metal": {
+    "name": "audio-metal.tar.gz",
+    "folder": "downloads",
+    "size": 30519606,
+    "sha256": "960436787b84bf137a70ea1713ac460207ef2ac7b2617380fb7a1f4650d1100d",
+    "url": "https://github.com/0xShug0/audio.cpp/releases/download/v0.9.1/audio-v0.9.1-bin-macos-arm64-metal.tar.gz"
+  },
+  "python-windows": {
+    "name": "python-3.11.9-embed-amd64.zip",
+    "folder": "downloads",
+    "size": 11249023,
+    "sha256": "009d6bf7e3b2ddca3d784fa09f90fe54336d5b60f0e0f305c37f400bf83cfd3b",
+    "url": "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip"
+  },
+  "python-macos": {
+    "name": "python-3.11.17-macos-arm64.tar.gz",
+    "folder": "downloads",
+    "size": 27000974,
+    "sha256": "5e656e09fc73c7ae10e4df66e6aa253f1f5980509b3be8a242e883d67a5fdf26",
+    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261013/cpython-3.11.17%2B20261013-aarch64-apple-darwin-install_only_stripped.tar.gz"
+  }
 }

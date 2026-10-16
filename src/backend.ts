@@ -164,7 +164,8 @@ export const createPlugin=(host:Host):Awaited<ReturnType<Activate>>=>({
   if(Object.keys(args).length!==1||typeof args.model!=='string')throw Error('Choose a reviewed model.');
   const plan=installationPlan(args.model,host);
   const directory=path.join(os.homedir(),'Genex-Local-Models',plan.family+(plan.apple?'.app/Contents':''));
-  return {message:`Download and verify ${args.model} and its ${plan.backend} runtime (about ${((plan.python.size+plan.assets.reduce((n,a)=>n+a.size,0))/1e9).toFixed(1)} GB). Download cache: ${await modelHome()}. Working files: ${directory}. Existing verified CUDA installations retain CUDA. Original model licenses apply. No account or token is used; generation does not download models.`};
+  const largest=host.platform==='win32'?installationPlan(args.model,host,true):plan;
+  return {message:`Download and verify ${args.model} and its platform runtime (up to ${((largest.python.size+largest.assets.reduce((n,a)=>n+a.size,0))/1e9).toFixed(1)} GB). New installs use ${plan.backend}; existing verified CUDA installations retain CUDA. Download cache: ${await modelHome()}. Working files: ${directory}. Original model licenses apply. No account or token is used; generation does not download models.`};
  },
  async action(name,args,ctx){
   if(name==='status')return state(ctx,host);

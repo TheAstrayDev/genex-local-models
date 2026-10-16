@@ -1,5 +1,5 @@
 {
-  "version": "0.1.11",
+  "version": "0.1.12",
   "status": "development-host prerelease",
   "host": "Local Genex 0.1.7-ui2 with unreleased 35-minute native-job and retained-asset-library changes",
   "stockCompatible": false,
@@ -26,5 +26,12 @@
   "notes": [
     "These are observed prototype measurements, not a fresh-install claim for this publisher-prefixed package.",
     "Cold starts vary with cache and disk. A skill does not guarantee artistic quality."
-  ]
+  ],
+  "publicChecks": {
+    "typescript": 31,
+    "python": 14,
+    "metalVulkanProfiles": "experimental",
+    "fullInferenceOnMacAmd": false,
+    "stockHostCompatible": false
+  }
 }

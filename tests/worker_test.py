@@ -23,6 +23,8 @@ class WorkerTests(unittest.TestCase):
                 self.assertEqual(Path(command[0]).name,filename)
                 self.assertIn('--mmap',command)
                 self.assertIn('--params-backend',command)
+                if backend != 'cuda':
+                    self.assertEqual(command[command.index('--backend')+1],backend,'A missing GPU must not silently switch the new profile to CPU compute')
             model=root/'models/stable-audio-3-small-sfx/model.gguf'
             model.parent.mkdir(parents=True);model.write_bytes(b'GGUFfixture')
             audio={'model':'stable-audio-3-small-sfx','prompt':'click','seed':42,'duration':1}
