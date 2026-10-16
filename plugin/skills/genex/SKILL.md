@@ -9,7 +9,7 @@ When the user requests a game, Studio's coding agent implements it and delegates
 
 Before planning a new game or its art/feel, read `theastraydev-local-models__skill {"name":"game-quality"}` once if not already loaded. Turn the brief into a compact creative direction and a polished playable slice, including the relevant 3D, VFX, shaders and runtime review. A short prompt does not imply permission for a generic unfinished demo; preserve explicit style and scope choices.
 
-Build a playable loop and schedule requested asset generation early. Explicit requests for generated 3D, textures, music or sounds are acceptance requirements; procedural placeholders do not fulfill them. Do not wait for a polished foundation before starting all required assets. Read `theastraydev-local-models__skill {"name":"asset-preference"}`, call `theastraydev-local-models__status` and check `theastraydev-local-models__assets` for reusable jobs. Use the assigned routes:
+Build a playable loop and schedule one local asset owner alongside foundation work at the first host-supported opportunity. Explicit requests for generated 3D, textures, music or sounds become required acceptance entries with generation/integration owners and retained IDs/URLs; procedural placeholders do not fulfill them. Read `theastraydev-local-models__skill {"name":"asset-preference"}` and its build-orchestration reference, call `theastraydev-local-models__status` and check `theastraydev-local-models__assets` for reusable jobs. Consume delivered final assets before requesting unplanned variations, and review the integrated candidate before completion. Use the assigned routes:
 
 
 | Need | Tool and arguments |

@@ -1,6 +1,6 @@
 {
   "passed": true,
-  "version": "0.1.10",
+  "version": "0.1.11",
   "id": "theastraydev-local-models",
   "freshRegistryInstall": true,
   "harmlessToolCalls": [
@@ -8,13 +8,13 @@
     "assets"
   ],
   "sameBindingEnableAndUse": true,
-  "syntheticPreviousVersion": "0.1.8",
+  "syntheticPreviousVersion": "0.1.10",
   "assignmentsPreserved": true,
   "disabledToolsAndSkillsWithdrawn": true,
   "removedToolsAndSkillsWithdrawn": true,
   "removedStoragePreserved": true,
   "fileSkills": 14,
-  "referenceFiles": 4,
+  "referenceFiles": 5,
   "nativeRuns": 0,
   "serviceCalls": 3,
   "accountFlow": "none",
@@ -48,5 +48,13 @@
     "url": "https://github.com/TheAstrayDev/genex-local-models/actions/runs/38913286804",
     "assertionFlipped": false,
     "additionalHostilePaths": true
+  },
+  "orchestrationReferenceReadable": true,
+  "crossSkillReferenceRejected": true,
+  "guidanceUpdate": {
+    "agentInstructionsOnly": true,
+    "hostEnforcedGate": false,
+    "generationCodeChanged": false,
+    "fullAutonomousBuildEvaluated": false
   }
 }

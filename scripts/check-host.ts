@@ -39,7 +39,7 @@ try{
  assert.equal(manifest.id,id);assert.notEqual(scan.verdict,'dangerous');
  // A synthetic previous version proves same-identity assignment preservation, not historical stock acceptance.
  const previous=path.join(evidence,'previous');await cp(source,previous,{recursive:true});
- await writeFile(path.join(previous,'plugin.json'),JSON.stringify({...manifest,version:'0.1.8'},null,2));
+ await writeFile(path.join(previous,'plugin.json'),JSON.stringify({...manifest,version:'0.1.10'},null,2));
  await registry.installLocal(previous,'local',manifest.capabilities,undefined,await scanPackage(previous,await inspectPackage(previous)));
  await registry.setEnabled(id,true);
  const settings={image:null,texture:'qwen-image-2.1-turbo',sfx:null,music:'stable-audio-3-small-music',model:null};
@@ -59,6 +59,9 @@ try{
   for(const file of card.references)assert.equal((await registry.tool(id+'__skill',{name:skill.name,file},binding)).file,file);
   checked.push(skill.name);
  }
+ const assetCard=await registry.tool(id+'__skill',{name:'asset-preference'},binding);
+ assert.deepEqual(assetCard.references,['skills/asset-preference/references/build-orchestration.md']);
+ await assert.rejects(registry.tool(id+'__skill',{name:'game-quality',file:assetCard.references[0]},binding));
  await assert.rejects(registry.tool(id+'__skill',{name:'game-quality',file:'../backend.mjs'},binding));
  await registry.setEnabled(id,false);assert.equal(registry.snapshot().tools.length,0);assert.equal(registry.snapshot().applied.skills.length,0);
  await assert.rejects(registry.tool(id+'__status',{},binding));
@@ -66,6 +69,8 @@ try{
  await registry.remove(id);assert.equal(registry.snapshot().tools.length,0);assert.equal(registry.snapshot().applied.skills.length,0);
  await assert.rejects(registry.tool(id+'__status',{},binding));
  await access(path.join(root,'data',id,'assignments.json'));assert.equal(nativeRuns,0);
- const result={passed:true,version:manifest.version,id,freshRegistryInstall:true,harmlessToolCalls:['status','assets'],sameBindingEnableAndUse:true,syntheticPreviousVersion:'0.1.8',assignmentsPreserved:true,disabledToolsAndSkillsWithdrawn:true,removedToolsAndSkillsWithdrawn:true,removedStoragePreserved:true,fileSkills:checked.length,referenceFiles:4,nativeRuns,serviceCalls,accountFlow:'none',realAppChat:false,realInference:false};
+ const referenceFiles=manifest.skills.reduce((count:number,skill:any)=>count+(skill.references?.length??0),0);
+ assert.equal(referenceFiles,5);
+ const result={passed:true,version:manifest.version,id,freshRegistryInstall:true,harmlessToolCalls:['status','assets'],sameBindingEnableAndUse:true,syntheticPreviousVersion:'0.1.10',assignmentsPreserved:true,disabledToolsAndSkillsWithdrawn:true,removedToolsAndSkillsWithdrawn:true,removedStoragePreserved:true,fileSkills:checked.length,referenceFiles,orchestrationReferenceReadable:true,crossSkillReferenceRejected:true,nativeRuns,serviceCalls,accountFlow:'none',realAppChat:false,realInference:false};
  await writeFile(path.join(evidence,'validation.json'),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify({...result,evidence},null,2));
 }finally{registry.cancel();}
