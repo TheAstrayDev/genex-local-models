@@ -4,11 +4,11 @@ import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {catalog,defaults,routes,validateAssignments,type Route,type Assignments} from './catalog.ts';
 import {ModelQueue} from './queue.ts';
-import {installation,startInstallation,cancelInstallation} from './installer.ts';
+import {installation,startInstallation,cancelInstallation,modelHome} from './installer.ts';
 import {assetEntries,nativeResult,retrieve,retainedAssets,restoreAssets} from './assets.ts';
 import type {Activate,PluginContext} from '../vendor/genex-sdk.d.ts';
 import {integrationFor,inspectUse,verifyUse} from './integration.ts';
-import {currentHost,compatibility,runtimeDirectory,type Host} from './platform.ts';
+import {currentHost,compatibility,runtimeDirectory,installationPlan,type Host} from './platform.ts';
 
 const queue=new ModelQueue();
 let activeModel:string|null=null;
@@ -45,7 +45,7 @@ async function state(ctx:PluginContext,host:Host){
  }));
  let recent:unknown[]=[];
  try{recent=JSON.parse(await readFile(path.join(root,'recent.json'),'utf8'));}catch{}
- return {project:ctx.project??null,host,runtime,qwen,root:runtimeRoot,models,installation:installation(),assignments:await assignments(root),
+ return {project:ctx.project??null,host,runtime,qwen,root:runtimeRoot,models,downloadCache:await modelHome(),modelDirectory:path.join(os.homedir(),'Genex-Local-Models'),installation:installation(),assignments:await assignments(root),
   execution:{policy:'one-model-at-a-time',sleep:'terminate-process',active:queue.active,model:activeModel,pending:queue.pending},recent};
 }
 
@@ -159,6 +159,13 @@ async function generateModel(args:Record<string,unknown>,ctx:PluginContext,host:
 
 /** Inject only host identity for deterministic cross-platform workflow fixtures. */
 export const createPlugin=(host:Host):Awaited<ReturnType<Activate>>=>({
+ async review(name,args){
+  if(name!=='install')return {};
+  if(Object.keys(args).length!==1||typeof args.model!=='string')throw Error('Choose a reviewed model.');
+  const plan=installationPlan(args.model,host);
+  const directory=path.join(os.homedir(),'Genex-Local-Models',plan.family+(plan.apple?'.app/Contents':''));
+  return {message:`Download and verify ${args.model} and its ${plan.backend} runtime (about ${((plan.python.size+plan.assets.reduce((n,a)=>n+a.size,0))/1e9).toFixed(1)} GB). Download cache: ${await modelHome()}. Working files: ${directory}. Existing verified CUDA installations retain CUDA. Original model licenses apply. No account or token is used; generation does not download models.`};
+ },
  async action(name,args,ctx){
   if(name==='status')return state(ctx,host);
   if(name==='discover')return discover();

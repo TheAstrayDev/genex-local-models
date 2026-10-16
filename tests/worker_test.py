@@ -33,7 +33,7 @@ class WorkerTests(unittest.TestCase):
                 self.assertEqual(Path(command[0]).name,filename)
             (root/'audio-backend.json').write_text(json.dumps({'backend':'arbitrary'}))
             with self.assertRaises(ValueError):worker.audio_command(root,audio,root/'audio.wav')
-            self.assertEqual(worker.runtime_root(root/'qwen.app/Contents/bin/python3.11'),root/'qwen.app/Contents')
+            self.assertEqual(worker.runtime_root(root/'qwen.app/Contents/bin/python3.11'),(root/'qwen.app/Contents').resolve())
 
     def test_native_rgba_prompt_preserves_agent_description_and_background_exceptions(self):
         request = {'prompt': 'A small hand painted golden coin', 'purpose': 'icon'}

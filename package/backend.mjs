@@ -5067,6 +5067,8 @@ async function state(ctx, host) {
     qwen,
     root: runtimeRoot,
     models,
+    downloadCache: await modelHome(),
+    modelDirectory: path4.join(os4.homedir(), "Genex-Local-Models"),
     installation: installation(),
     assignments: await assignments(root),
     execution: { policy: "one-model-at-a-time", sleep: "terminate-process", active: queue.active, model: activeModel, pending: queue.pending },
@@ -5190,6 +5192,13 @@ async function generateModel(args, ctx, host) {
   }
 }
 var createPlugin = (host) => ({
+  async review(name, args) {
+    if (name !== "install") return {};
+    if (Object.keys(args).length !== 1 || typeof args.model !== "string") throw Error("Choose a reviewed model.");
+    const plan = installationPlan(args.model, host);
+    const directory2 = path4.join(os4.homedir(), "Genex-Local-Models", plan.family + (plan.apple ? ".app/Contents" : ""));
+    return { message: `Download and verify ${args.model} and its ${plan.backend} runtime (about ${((plan.python.size + plan.assets.reduce((n, a) => n + a.size, 0)) / 1e9).toFixed(1)} GB). Download cache: ${await modelHome()}. Working files: ${directory2}. Existing verified CUDA installations retain CUDA. Original model licenses apply. No account or token is used; generation does not download models.` };
+  },
   async action(name, args, ctx) {
     if (name === "status") return state(ctx, host);
     if (name === "discover") return discover();
