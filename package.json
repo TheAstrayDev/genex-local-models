@@ -1,0 +1,25 @@
+{
+  "name": "genex-local-models",
+  "version": "0.1.9",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test tests/*.test.ts",
+    "check": "tsc --noEmit",
+    "test:worker": "python -m unittest discover -s tests -p \"*_test.py\""
+  },
+  "devDependencies": {
+    "@types/node": "24.10.0",
+    "@types/yauzl": "2.10.3",
+    "esbuild": "0.25.12",
+    "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "yauzl": "3.4.0"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  }
+}

@@ -1,0 +1,64 @@
+import {mkdir,readFile,writeFile,cp,unlink} from 'node:fs/promises';
+import path from 'node:path';
+import {build} from 'esbuild';
+import {fileSkills,localWorkflow} from './skills.mjs';
+const root=import.meta.dirname,out=path.join(root,'package');await mkdir(out,{recursive:true});
+const version=JSON.parse(await readFile(path.join(root,'package.json'),'utf8')).version;
+const MODEL_TIMEOUT_MS=35*60*1000;
+const OTHER_TIMEOUT_MS=5*60*1000;
+await build({entryPoints:[path.join(root,'src/backend.ts')],bundle:true,platform:'node',format:'esm',target:'node22',banner:{js:'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);'},outfile:path.join(out,'backend.mjs')});
+const browser=await build({entryPoints:[path.join(root,'src/panel.ts')],bundle:true,platform:'browser',format:'iife',write:false});
+await writeFile(path.join(out,'panel.html'),`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Local Models</title><style>${await readFile(path.join(root,'src/style.css'),'utf8')}</style><main id="root"></main><script>${await readFile(path.join(root,'vendor/panel.js'),'utf8')}</script><script>${browser.outputFiles[0].text.replace(/<\/script/gi,'<\\/script')}</script></html>`);
+const string={type:'string'},number={type:'number'};
+const tools=[
+ {name:'inspect-use',description:'Required after integrating a generated asset. Observe the current game through the same host service as Genex Tools. Reports missing runtime loads, captures the actual frame, and verifies audible playback. A delivered file or loader stub is not integration.',parameters:{type:'object',properties:{id:string},required:['id']}},
+ {name:'verify-use',description:'Record visible asset use after a successful current inspect-use. Use its exact inspectionId and describe what is visible in the attached frame. Cannot verify missing runtime loads.',parameters:{type:'object',properties:{id:string,inspectionId:string,note:string},required:['id','inspectionId','note']}},
+ {name:'status',description:'Inspect assigned local generation models and readiness. No weights are loaded. Use before creating an asset.',parameters:{type:'object',properties:{}}},
+ {name:'generate-image',description:'Generate a local PNG. Default assets, icons and model-reference purposes automatically receive Qwen native RGBA instructions and must pass a real alpha check. Agent supplies only its object description. Use purpose:scene for a full illustration or task:texture for an opaque material. One bounded native retry on alpha failure; no image editing or paid fallback.',parameters:{type:'object',properties:{name:string,prompt:string,task:{type:'string',description:'image or texture'},purpose:{type:'string',enum:['asset','icon','model-reference','scene'],description:'Default asset: native transparent PNG. icon: readable icon. model-reference: isolated three-quarter object. scene: full image with a background. Do not set purpose for task:texture.'},size:{type:'number',description:'512 or 768; default 512'},seed:number},required:['name','prompt']}},
+ {name:'generate-audio',description:'Generate sound effects or music with an assigned installed Stable Audio model. Requires licensed Hugging Face access before setup. One worker, unloaded after completion. No paid fallback.',parameters:{type:'object',properties:{name:string,prompt:string,task:{type:'string',description:'sfx or music'},duration:{type:'number',description:'1 to 120 seconds'},seed:number},required:['name','prompt']}},
+ {name:'generate-model',description:'Generate a textured GLB with local Hunyuan3D. Use exactly one: prompt to save a Qwen reference and return nextCall (immediately follow it to finish Hunyuan3D in a separate tool call); imageJobId to reuse an existing image without copying paths; or image for a project image under assets/ or public/. GPU phases run sequentially. Reference is retained if mesh generation fails. No animation.',parameters:{type:'object',properties:{name:string,quality:{type:'string',enum:['high','balanced'],description:'Default balanced: 384 shape, 50k triangles, native 512px paint views, 1K atlas. Experimental high: 512 shape, up to 200k triangles, 512px views, 2K atlas; may introduce texture noise and takes longer. Both preserve surface normals. Higher density does not guarantee better appearance; inspect the result. No silent downgrade.'},prompt:{type:'string',description:'Describe the object and art style. The plugin automatically requests a native transparent three-quarter RGBA reference, then creates a textured GLB.'},imageJobId:{type:'string',description:'Exact completed image job UUID from this game; no manual copy or new image generation.'},image:{type:'string',description:'Exact project-relative PNG/JPEG/WebP path under assets/ or public/.'},seed:number},required:['name']}},
+ {name:'retrieve',description:'Restore a retained job into the current game/build through normal Genex Assets delivery. Reuses saved bytes, never regenerates; refuses to overwrite changed files. Only jobs belonging to this game.',parameters:{type:'object',properties:{id:string},required:['id']}},
+ {name:'assets',description:'List this game\'s retained Local Models assets and exact job IDs, including results from stopped builds. Read only: no models run and no files are copied. Use retrieve to restore a result into the current workspace.',parameters:{type:'object',properties:{}}}
+];
+const chunks=Array.from({length:12},(_,index)=>`r${index}`);
+const jobs=[['image','image.png'],['audio','audio.wav'],['model','model.glb']].map(([kind,output])=>({id:kind,runtime:kind==='image'?'qwen':'theastraydev-local-models',args:[{source:'package',name:'worker.py'},kind,{source:'output',name:output},...chunks.map(name=>({source:'value',name})),...(kind==='model'?[{source:'input',name:'image'}]:[])],inputs:kind==='model'?['image']:[],values:Object.fromEntries(chunks.map(key=>[key,{pattern:'^[A-Za-z0-9+/=.]{1,1024}$',maxLength:1024}])),outputs:[output],timeoutMs:kind==='model'?MODEL_TIMEOUT_MS:OTHER_TIMEOUT_MS,maxOutputBytes:128000,maxAssetBytes:104857600,gpu:true}));
+const manifest={apiVersion:3,id:'theastraydev-local-models',version:'0.1.0',name:'Local Models',publisher:'TheAstrayDev',description:'Local asset generation with one model at a time. Qwen images, gated Stable Audio setup and experimental Hunyuan3D 2.0 Turbo. Standard Genex API 3; no customization API required.',icon:'icon.svg',backend:'backend.mjs',capabilities:['native-runtime','project.read','project.write','jobs'],tools,
+skills:[{name:'local-assets',text:'For asset generation prefer assigned local models when this plugin is enabled. First call theastraydev-local-models__status. Use theastraydev-local-models__generate-image for images or textures, theastraydev-local-models__generate-audio for music/sfx and theastraydev-local-models__generate-model for 3D from a reference PNG. Only installed, assigned adapters work; a chat LLM cannot substitute for an audio, image or mesh model. There is one model process at a time. If busy, wait for completion before trying again. Cancellation may take time to release GPU memory. Preserve exact delivered paths, load the returned asset in the game and verify visible or audible use. Do not call a paid genex generation tool as a silent fallback. This plugin does not replace publishing or account tools and cannot animate meshes.'}],panels:[{id:'setup',title:'Local Models',file:'panel.html',placement:'settings'}],settings:[],actions:[{name:'status',label:'Model status'},{name:'discover',label:'Find existing models'},{name:'assign',label:'Save assignments'}],nativeRuntimes:[{id:'qwen',label:'Qwen SSD Python',candidates:['home:Genex-Local-Models/qwen/python.exe','D:/Genex-Local-Models/runtime/python.exe'],version:{args:['--version'],pattern:'Python (\\d+\\.\\d+\\.\\d+)',minimum:'3.11.0'},platforms:[{platform:'win32',arch:'x64',candidates:['home:Genex-Local-Models/qwen/python.exe','D:/Genex-Local-Models/runtime/python.exe']}]},{id:'theastraydev-local-models',label:'Local Models Python',candidates:['D:/Genex-Local-Models/runtime/python.exe','home:Genex-Local-Models/runtime/python.exe','storage:runtimes/theastraydev-local-models/python.exe'],version:{args:['--version'],pattern:'Python (\\d+\\.\\d+\\.\\d+)',minimum:'3.11.0'},platforms:[{platform:'win32',arch:'x64',candidates:['D:/Genex-Local-Models/runtime/python.exe','home:Genex-Local-Models/runtime/python.exe','storage:runtimes/theastraydev-local-models/python.exe']}]}],nativeJobs:jobs};
+manifest.description='Experimental Windows/NVIDIA local image, audio and 3D generation. Requires an unreleased native-job host extension; not compatible with stock Genex 0.1.7. One GPU worker at a time.';
+manifest.version=version;
+manifest.skills=[localWorkflow,...await fileSkills(root)];
+tools.find(tool=>tool.name==='generate-audio').description='Generate sound effects or music with the assigned installed Stable Audio 3 Small Q8 model. One worker, unloaded after completion. No paid fallback.';
+manifest.capabilities.push('network','observe');
+manifest.network={hosts:['huggingface.co','github.com','www.python.org']};
+manifest.nativeRuntimes=manifest.nativeRuntimes.filter(runtime=>runtime.id!=='theastraydev-local-models');
+const qwen=manifest.nativeRuntimes.find(runtime=>runtime.id==='qwen');
+qwen.candidates=['home:Genex-Local-Models/qwen/python.exe','D:/Genex-Local-Models/qwen/python.exe'];
+qwen.platforms[0].candidates=qwen.candidates;
+manifest.actions.push({name:'install',label:'Install model',confirmation:'Download the selected public model and its verified runtime (up to 11 GB). Its original model license applies. No account or token is sent.'},{name:'cancel-install',label:'Cancel model download'});
+manifest.actions.push({name:'restore-assets',label:'Restore generated assets to this game'});
+for(const family of ['audio','hunyuan']){
+ const candidates=[`home:Genex-Local-Models/${family}/python.exe`,`D:/Genex-Local-Models/${family}/python.exe`];
+ manifest.nativeRuntimes.push({id:family,label:`${family} local runtime`,candidates,version:{args:['--version'],pattern:'Python (\\d+\\.\\d+\\.\\d+)',minimum:'3.11.0'},platforms:[{platform:'win32',arch:'x64',candidates}]});
+}
+for(const job of manifest.nativeJobs)if(job.id!=='image')job.runtime=job.id==='audio'?'audio':'hunyuan';
+// Keep cross-platform top-level declarations on portable aliases. Compatible Windows
+// hosts select their platform-specific candidates, including the secondary-drive runtime.
+for(const runtime of manifest.nativeRuntimes)runtime.candidates=runtime.candidates.filter(candidate=>candidate.startsWith('home:'));
+await writeFile(path.join(out,'plugin.json'),JSON.stringify(manifest,null,2));
+await cp(path.join(root,'plugin/skills'),path.join(out,'skills'),{recursive:true});
+await cp(path.join(root,'plugin/worker.py'),path.join(out,'worker.py'));
+await cp(path.join(root,'plugin/hunyuan.py'),path.join(out,'hunyuan.py'));
+await cp(path.join(root,'plugin/native'),path.join(out,'native'),{recursive:true});
+await cp(path.join(root,'plugin/lpac_path.h'),path.join(out,'lpac_path.h'));
+await cp(path.join(root,'plugin/audio-runtime.json'),path.join(out,'audio-runtime.json'));
+for(const file of ['audio.py','trellis.py'])await unlink(path.join(out,file)).catch(error=>{if(error.code!=='ENOENT')throw error;});
+for(const file of ['README.md','LICENSE'])await cp(path.join(root,file),path.join(out,file));
+await cp(path.join(root,'docs'),path.join(out,'docs'),{recursive:true});
+await cp(path.join(root,'validation.json'),path.join(out,'validation.json'));
+await cp(path.join(root,'vendor/LICENSE.genex'),path.join(out,'LICENSE.genex'));
+await cp(path.join(root,'vendor/LICENSE.rembg'),path.join(out,'LICENSE.rembg'));
+await mkdir(path.join(out,'vendor'),{recursive:true});
+await cp(path.join(root,'vendor/LICENSE.genex'),path.join(out,'vendor/LICENSE.genex'));
+await writeFile(path.join(out,'THIRD-PARTY-NOTICES.txt'),(await Promise.all(['yauzl','pend'].map(async dependency=>`${dependency}\n${await readFile(path.join(root,'node_modules',dependency,'LICENSE'),'utf8')}`))).join('\n\n'));
+await writeFile(path.join(out,'icon.svg'),'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#151515"/><g fill="none" stroke="#8890d9" stroke-width="3"><rect x="16" y="16" width="32" height="32" rx="7"/><path d="M25 25h14v14H25zM24 8v8m8-8v8m8-8v8M24 48v8m8-8v8m8-8v8M8 24h8M8 32h8M8 40h8m32-16h8m-8 8h8m-8 8h8"/></g></svg>');
+console.log(out);

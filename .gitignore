@@ -1,0 +1,7 @@
+node_modules/
+.evidence/
+__pycache__/
+*.pyc
+*.part
+*.copying
+validation-private.json

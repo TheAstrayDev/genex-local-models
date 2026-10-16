@@ -1,0 +1,7 @@
+{
+  "name": "diffusion_pytorch_model.bin",
+  "folder": "hunyuan/models/tencent/Hunyuan3D-2/hunyuan3d-paint-v2-0-turbo/unet",
+  "size": 7325432923,
+  "sha256": "24e7f1aea8a7c94cee627eb06f5265f19eeff4e19568636c5eaef050cc19ba3d",
+  "url": "https://huggingface.co/tencent/Hunyuan3D-2/resolve/9cd649ba6913f7a852e3286bad86bfa9a2d83dcf/hunyuan3d-paint-v2-0-turbo/unet/diffusion_pytorch_model.bin"
+}

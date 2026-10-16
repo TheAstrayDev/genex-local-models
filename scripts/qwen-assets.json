@@ -1,0 +1,37 @@
+[
+  {
+    "name": "sd-cuda.zip",
+    "folder": "downloads",
+    "size": 338016915,
+    "sha256": "2f08572e143f0b15a764197ea937d219dd70f0cc7eefb30eb84c9dae6a7cba6d",
+    "url": "https://github.com/leejet/stable-diffusion.cpp/releases/download/master-964-1d0a58a/sd-master-1d0a58a-bin-win-cuda12-x64.zip"
+  },
+  {
+    "name": "sd-cudart.zip",
+    "folder": "downloads",
+    "size": 563452046,
+    "sha256": "fe20366827d357c00797eebb58244dddab7fd9a348d70090c3871004c320f38d",
+    "url": "https://github.com/leejet/stable-diffusion.cpp/releases/download/master-964-1d0a58a/cudart-sd-bin-win-cu12-x64.zip"
+  },
+  {
+    "name": "diffusion.gguf",
+    "folder": "runtime/models/qwen-image-2.1-turbo",
+    "size": 4199565120,
+    "sha256": "8940e8b522af886e0c0f5afddf720e82dd223cb9a43580b5f61c4d740452ac20",
+    "url": "https://huggingface.co/unsloth/Qwen-Image-2.1-Turbo-GGUF/resolve/5d1f9f759ea877ae556cda88dbec958b62ad3809/qwen-image-2.1-turbo-Q4_K_M.gguf"
+  },
+  {
+    "name": "text-encoder.gguf",
+    "folder": "runtime/models/qwen-image-2.1-turbo",
+    "size": 5027784800,
+    "sha256": "67d1659bfe71b89d50b45a4ad1a9e5b997e5bb16ce5da66a6a6167abd569e9e2",
+    "url": "https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF/resolve/f982a07559d4a2f6c8744d840bf6fccab30eea96/Qwen3VL-8B-Instruct-Q4_K_M.gguf"
+  },
+  {
+    "name": "vae.safetensors",
+    "folder": "runtime/models/qwen-image-2.1-turbo",
+    "size": 675509688,
+    "sha256": "bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9",
+    "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/a8342359c61979b06a8dafb1a47991fe1f30e994/vae/qwen_image_2.1_vae_bf16.safetensors"
+  }
+]

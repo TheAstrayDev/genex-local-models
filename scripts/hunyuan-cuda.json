@@ -1,0 +1,72 @@
+[
+  {
+    "name": "cuda-nvcc-dev_win-64-12.9.86-0.conda",
+    "folder": "downloads/hunyuan",
+    "size": 55275517,
+    "sha256": "c4e7f6ff28d7c4538e1e8a8c9fde00aa56be29e2d4155ec296552391dcfd3a1b",
+    "url": "https://conda.anaconda.org/nvidia/noarch/cuda-nvcc-dev_win-64-12.9.86-0.conda"
+  },
+  {
+    "name": "cuda-crt-dev_win-64-12.9.86-0.conda",
+    "folder": "downloads/hunyuan",
+    "size": 85783,
+    "sha256": "a6f6fca1b582e7c8c4a9f56f5c5f3293991bf08da493c7c6cdaa527bc6899383",
+    "url": "https://conda.anaconda.org/nvidia/noarch/cuda-crt-dev_win-64-12.9.86-0.conda"
+  },
+  {
+    "name": "cuda-nvvm-dev_win-64-12.9.86-0.conda",
+    "folder": "downloads/hunyuan",
+    "size": 17861,
+    "sha256": "da8023211b06b920e24429abfdd20fd0b1ce9571fa1501e4ad5581396902953d",
+    "url": "https://conda.anaconda.org/nvidia/noarch/cuda-nvvm-dev_win-64-12.9.86-0.conda"
+  },
+  {
+    "name": "cuda-nvvm-tools-12.9.86-0.conda",
+    "folder": "downloads/hunyuan",
+    "size": 40332611,
+    "sha256": "af1dc78f9d786b1769f6dd54c7f2e7522656ab403ea39e26ff928bbecba261ff",
+    "url": "https://conda.anaconda.org/nvidia/win-64/cuda-nvvm-tools-12.9.86-0.conda"
+  },
+  {
+    "name": "cuda-nvcc-tools-12.9.86-0.conda",
+    "folder": "downloads/hunyuan",
+    "size": 17823,
+    "sha256": "b6afcec698ab2bf10239e45129df2ef4707cc471b54f1e869b981bdc4f75fab9",
+    "url": "https://conda.anaconda.org/nvidia/win-64/cuda-nvcc-tools-12.9.86-0.conda"
+  },
+  {
+    "name": "cuda-crt-tools-12.9.86-0.conda",
+    "folder": "downloads/hunyuan",
+    "size": 20214,
+    "sha256": "a912f87fc8f8e7acd99f650346a7a21cd7299f03dfdb1c4dbf840b52d6cf9904",
+    "url": "https://conda.anaconda.org/nvidia/win-64/cuda-crt-tools-12.9.86-0.conda"
+  },
+  {
+    "name": "libcusparse-dev-12.5.10.65-0.conda",
+    "folder": "downloads/hunyuan",
+    "size": 41480,
+    "sha256": "bac09282bab02afcd9c0d131be2c1ac6d6c4cff29fbfe5853f8fa0ba9470b3ab",
+    "url": "https://conda.anaconda.org/nvidia/win-64/libcusparse-dev-12.5.10.65-0.conda"
+  },
+  {
+    "name": "libcublas-dev-12.9.2.10-hde976d8_0.conda",
+    "folder": "downloads/hunyuan",
+    "size": 157617,
+    "sha256": "ce2901022db8e509d1bd818c059a832596725fb80d896adfc97cbcd117cfde62",
+    "url": "https://conda.anaconda.org/nvidia/win-64/libcublas-dev-12.9.2.10-hde976d8_0.conda"
+  },
+  {
+    "name": "libcusolver-dev-11.7.5.82-0.conda",
+    "folder": "downloads/hunyuan",
+    "size": 56997,
+    "sha256": "19cbdaf3200c7912e0c481091f8ca3a429513f004786e49a58e8656ef444b037",
+    "url": "https://conda.anaconda.org/nvidia/win-64/libcusolver-dev-11.7.5.82-0.conda"
+  },
+  {
+    "name": "libcurand-dev-10.3.10.19-0.conda",
+    "folder": "downloads/hunyuan",
+    "size": 248129,
+    "sha256": "63bc90f4bcbda4d0df997b6832490cfb74577bf7964ab3302e58db889ae701ce",
+    "url": "https://conda.anaconda.org/nvidia/win-64/libcurand-dev-10.3.10.19-0.conda"
+  }
+]

@@ -1,0 +1,46 @@
+{
+  "passed": true,
+  "version": "0.1.9",
+  "id": "theastraydev-local-models",
+  "freshRegistryInstall": true,
+  "harmlessToolCalls": [
+    "status",
+    "assets"
+  ],
+  "sameBindingEnableAndUse": true,
+  "syntheticPreviousVersion": "0.1.8",
+  "assignmentsPreserved": true,
+  "disabledToolsAndSkillsWithdrawn": true,
+  "removedToolsAndSkillsWithdrawn": true,
+  "removedStoragePreserved": true,
+  "fileSkills": 14,
+  "referenceFiles": 4,
+  "nativeRuns": 0,
+  "serviceCalls": 3,
+  "accountFlow": "none",
+  "realAppChat": false,
+  "realInference": false,
+  "upstreamReference": "06741ab9a9c5ae215272803f61eb2dcd1eff2804",
+  "inspectionPatch": "compat/inspection-budget.patch",
+  "tests": {
+    "typescript": 26,
+    "python": 13,
+    "typecheck": true,
+    "build": true
+  },
+  "stockDoctor": {
+    "ok": false,
+    "probe": "skipped",
+    "errors": [
+      "Package is not installable: Native job model: timeoutMs must be an integer from 1000 to 300000 milliseconds"
+    ]
+  },
+  "referenceDoctor": {
+    "ok": true,
+    "probe": "ready",
+    "scan": "caution",
+    "notes": [
+      "Third-party bundled encoding table and files outside scanner text extensions remain visible; no warnings are suppressed."
+    ]
+  }
+}

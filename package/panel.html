@@ -1,0 +1,177 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Local Models</title><style>:root{color-scheme:dark;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#d6d6d6;background:#101010;--surface:#141414;--border:#292929;--muted:#929292;--accent:#6974cc}*{box-sizing:border-box}body{margin:0;padding:28px 32px}main{max-width:1000px;margin:auto}h1,h2,h3,p{margin:0}h1{font-size:30px;letter-spacing:-1px;font-weight:500}h2{font-size:17px;font-weight:500}h3{font-size:16px;font-weight:500}p{line-height:1.6}header{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:24px}header p{color:var(--muted);margin-top:8px}.execution{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:16px 18px}.execution strong{font-weight:500}.execution>span:last-child{margin-left:auto;color:var(--muted)}.dot{width:7px;height:7px;border-radius:50%;background:#888}.dot.working{background:var(--accent)}section{margin-top:32px}.section-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:16px}.section-heading>span{font-size:12px;color:var(--muted)}.routes{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;margin-bottom:16px}.route{display:grid;gap:8px}select,button{font:inherit;color:inherit;border:1px solid var(--border);border-radius:10px;background:#1b1b1b;padding:10px 12px}select{width:100%;text-overflow:ellipsis}button{cursor:pointer;white-space:nowrap}button:hover{background:#242424}button:disabled{opacity:.5;cursor:default}.primary{background:#4757b7;border-color:#4757b7}.primary:hover{background:#5263c9}a{color:#c1c5ee;text-decoration:none}a:hover{text-decoration:underline}button:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:3px}.models{display:grid;gap:12px}article{padding:18px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}.model-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}.badge{font-size:12px;color:#bbb;padding:5px 8px;border:1px solid var(--border);border-radius:7px}.badge.ready{color:#bdc3f0;background:#1d2034;border-color:#303751}article>p{color:var(--muted);font-size:13px}.reason{margin-top:7px;max-width:74ch}.model-footer{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-top:16px;font-size:12px;color:var(--muted)}.found,.history>div{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid var(--border)}.history strong,.found strong{font-weight:400}.history span,.found span{font-size:12px;color:var(--muted)}#discovery>p{font-size:13px;color:var(--muted);margin-top:16px}.empty{padding:20px 0;color:var(--muted)}footer{border-top:1px solid var(--border);margin-top:32px;padding-top:20px;color:var(--muted);font-size:12px}footer p+p{margin-top:10px}code{font:11px Consolas,monospace}#message{margin-top:18px}.error{color:#ff8888}::selection{background:#4757b7;color:white}@media(max-width:640px){body{padding:20px 16px}.routes{grid-template-columns:1fr}.execution{flex-wrap:wrap}.execution>span:last-child{width:100%;margin-left:17px}.model-footer{align-items:flex-start;flex-direction:column}.section-heading>span{display:none}}
+</style><main id="root"></main><script>// Include this in a prebuilt panel. No credential values or arbitrary IPC are exposed.
+const waiting = new Map();
+const contextListeners = new Set();
+let seq = 0;
+window.addEventListener("message", (event) => {
+  if (event.source !== parent) return;
+  if (event.data?.type === "studio-plugin-context-changed") {
+    for (const listener of contextListeners) {
+      try {
+        listener();
+      } catch {}
+    }
+    return;
+  }
+  if (event.data?.type !== "studio-plugin-result") return;
+  const p = waiting.get(event.data.id);
+  if (!p) return;
+  waiting.delete(event.data.id);
+  clearTimeout(p.timer);
+  event.data.error ? p.reject(new Error(event.data.error)) : p.resolve(event.data.result);
+});
+window.studioPlugin = {
+  onContextChanged(callback) {
+    contextListeners.add(callback);
+    return () => contextListeners.delete(callback);
+  },
+  call(method, name, args, options) {
+    // A long setup action may extend its local wait; host validation, confirmations and
+    // execution deadlines still apply. Timing out never means a remote job was cancelled.
+    const timeoutMs = options?.timeoutMs ?? 60000;
+    if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 1800000)
+      return Promise.reject(new Error("Invalid panel wait duration"));
+    const id = String(++seq);
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        waiting.delete(id);
+        reject(new Error("Studio request timed out. Inspect its status before retrying."));
+      }, timeoutMs);
+      waiting.set(id, { resolve, reject, timer });
+      parent.postMessage({ type: "studio-plugin-request", id, method, name, args }, "*");
+    });
+  },
+};
+window.addEventListener("pagehide", () => {
+  for (const p of waiting.values()) {
+    clearTimeout(p.timer);
+    p.reject(new Error("Panel closed"));
+  }
+  waiting.clear();
+});
+</script><script>"use strict";
+(() => {
+  // src/catalog.ts
+  var routes = ["image", "texture", "sfx", "music", "model"];
+
+  // src/panel.ts
+  var root = document.getElementById("root");
+  var snapshot;
+  var busy = false;
+  var labels = { image: "Images", texture: "Textures", sfx: "Sound effects", music: "Music", model: "3D objects" };
+  var escape = (text) => String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  function message(text, error = false) {
+    const el = document.getElementById("message");
+    el.textContent = text;
+    el.classList.toggle("error", error);
+  }
+  function render() {
+    const state = snapshot.execution;
+    root.innerHTML = `<header><div><h1>Local Models</h1><p>One task. One model. Memory back when it finishes.</p></div><button id="refresh">Refresh</button></header>
+ <div class="execution"><span class="dot ${state.active ? "working" : ""}"></span><strong>${state.active ? "Working on one task" : "Models asleep"}</strong><span>${state.pending > 1 ? `${state.pending - 1} waiting` : "Only one worker can run at a time"}</span></div>
+ <section><div class="section-heading"><h2>Choose a model for each task</h2><span>Applies to new requests</span></div>
+ <div class="routes">${routes.map((route) => `<label class="route"><span>${labels[route]}</span><select data-route="${route}" aria-label="${labels[route]} model"><option value="">Not assigned</option>${snapshot.models.filter((model) => model.routes.includes(route)).map((model) => `<option value="${model.id}" ${snapshot.assignments[route] === model.id ? "selected" : ""}>${escape(model.name)}${model.ready ? "" : " \xB7 unavailable"}</option>`).join("")}</select></label>`).join("")}</div>
+ <button id="save" class="primary">Save assignments</button></section>
+ <section><div class="section-heading"><h2>On this computer</h2><button id="discover">Find existing models</button></div>
+ <div id="installation" role="status" aria-live="polite"></div>
+ <div class="models">${snapshot.models.map((model) => `<article><div class="model-heading"><h3>${escape(model.name)}</h3><span class="badge ${model.ready ? "ready" : ""}">${model.state === "working" ? "Working" : model.ready ? "Sleeping" : model.gate ? "Access required" : "Not installed"}</span></div><p>${escape(model.detail)}</p><p class="reason">${escape(model.reason)}</p><div class="model-footer"><span>${escape(model.license)}${model.bytes ? ` \xB7 ${(model.bytes / 1e9).toFixed(1)} GB` : ""}${model.experimental ? " \xB7 Experimental" : ""}</span><a href="${escape(model.url)}" target="_blank" rel="noreferrer">Model details \u2197</a></div></article>`).join("")}</div><div id="discovery"></div></section>
+ <section><div class="section-heading"><h2>Saved assets</h2><button id="restore-assets" ${snapshot.project ? "" : "disabled"}>Restore assets</button></div><p>${snapshot.project ? `Restore retained results into <strong>${escape(snapshot.project)}</strong> and its Genex Assets panel. No models run; existing changed files are preserved.` : "Open a game, then open this plugin to restore its saved assets."}</p></section>
+ <section><div class="section-heading"><h2>Recent generations</h2><span>Measured on this computer</span></div>${snapshot.recent.length ? `<div class="history">${snapshot.recent.slice(0, 5).map((job) => `<div><strong>${escape(labels[job.task] ?? job.task)}</strong><span>${escape(job.model)}</span><span>${Number(job.seconds).toFixed(1)}s \xB7 asleep</span></div>`).join("")}</div>` : '<p class="empty">Ask Studio for an asset after assigning an installed model. Timing appears after the first completed job.</p>'}</section>
+ <footer><p>Weights stay on disk. Each request starts a fresh process; its model memory is released when the process exits. Cold starts depend on disk speed and model size.</p><p>Local tools: <code>theastraydev-local-models__generate-image</code>, <code>theastraydev-local-models__generate-audio</code>, <code>theastraydev-local-models__generate-model</code>. No paid fallback. Animation is not supported by these models.</p></footer><p id="message" role="status" aria-live="polite"></p>`;
+    document.getElementById("refresh").onclick = () => void refresh();
+    document.getElementById("restore-assets").onclick = async () => {
+      const button = document.getElementById("restore-assets");
+      button.disabled = true;
+      try {
+        const result = await studioPlugin.call("action", "restore-assets", {});
+        message(`${result.restored.length} saved jobs restored to Genex Assets.${result.failed.length ? " " + result.failed.length + " could not be restored: " + result.failed.map((failure) => failure.error).join("; ") : ""}`, result.failed.length > 0);
+      } catch (error) {
+        message(String(error), true);
+      } finally {
+        button.disabled = !snapshot.project;
+      }
+    };
+    for (const model of snapshot.models.filter((model2) => !model2.ready)) {
+      const card = [...document.querySelectorAll("article")][snapshot.models.indexOf(model)];
+      const button = document.createElement("button");
+      button.textContent = "Install";
+      button.disabled = Boolean(snapshot.installation?.active);
+      button.onclick = async () => {
+        try {
+          await studioPlugin.call("action", "install", { model: model.id });
+          await refresh();
+        } catch (error) {
+          message(String(error), true);
+        }
+      };
+      card.append(button);
+    }
+    showInstallation();
+    document.getElementById("save").onclick = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const selections = {};
+        document.querySelectorAll("[data-route]").forEach((select) => {
+          selections[select.dataset.route] = select.value || null;
+        });
+        await studioPlugin.call("action", "assign", selections);
+        snapshot.assignments = selections;
+        message("Assignments saved.");
+      } catch (error) {
+        message(String(error), true);
+      } finally {
+        busy = false;
+      }
+    };
+    document.getElementById("discover").onclick = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const result = await studioPlugin.call("action", "discover", {});
+        document.getElementById("discovery").innerHTML = `<p>${escape(result.note)}</p>${result.found.map((model) => `<div class="found"><strong>${escape(model.id)}</strong><span>Adapter not installed</span></div>`).join("") || "<p>No additional model caches found.</p>"}`;
+      } catch (error) {
+        message(String(error), true);
+      } finally {
+        busy = false;
+      }
+    };
+  }
+  async function refresh() {
+    if (busy) return;
+    busy = true;
+    try {
+      snapshot = await studioPlugin.call("action", "status", {});
+      render();
+    } catch (error) {
+      root.innerHTML = `<h1>Local Models</h1><p class="error">${escape(error)}</p><button id="retry">Retry</button>`;
+      document.getElementById("retry").onclick = () => void refresh();
+    } finally {
+      busy = false;
+    }
+  }
+  void refresh();
+  function showInstallation() {
+    const element = document.getElementById("installation"), setup = snapshot.installation;
+    if (!element || !setup) return;
+    if (!setup.active) {
+      element.textContent = setup.error ?? (setup.phase === "ready" ? "Model installed and verified." : "");
+      return;
+    }
+    element.innerHTML = `<p>${escape(setup.model)} \xB7 ${escape(setup.phase)} \xB7 ${(setup.completed / 1e9).toFixed(2)} / ${(setup.total / 1e9).toFixed(2)} GB</p><progress max="${setup.total}" value="${setup.completed}"></progress> <button id="cancel-install">Cancel download</button>`;
+    document.getElementById("cancel-install").onclick = async () => {
+      await studioPlugin.call("action", "cancel-install", {});
+    };
+  }
+  setInterval(() => {
+    if (!snapshot?.installation?.active || document.hidden || busy) return;
+    void studioPlugin.call("action", "status", {}).then((value) => {
+      const wasActive = snapshot.installation.active;
+      snapshot = value;
+      showInstallation();
+      if (wasActive && !value.installation.active) render();
+    }).catch(() => {
+    });
+  }, 1500);
+})();
+</script></html>

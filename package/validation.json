@@ -1,0 +1,30 @@
+{
+  "version": "0.1.9",
+  "status": "development-host prerelease",
+  "host": "Local Genex 0.1.7-ui2 with unreleased 35-minute native-job and retained-asset-library changes",
+  "stockCompatible": false,
+  "hardware": {
+    "gpu": "RTX 4070 12 GB",
+    "ramGiB": 32,
+    "os": "Windows x64"
+  },
+  "prototypeEvidence": {
+    "nodeTests": 26,
+    "pythonTests": 13,
+    "modelJobsSequential": true,
+    "nativeRgbaIconSeconds": 76.032,
+    "nativeRgbaReferenceSeconds": 46.352,
+    "hunyuanBalancedSeconds": 392.872,
+    "hunyuanExperimentalHighSeconds": 449.412,
+    "highOriginalPaintView": 768,
+    "highRepaint512Seconds": 137.406,
+    "highRepaintOnly": true,
+    "highVisualRegression": "More paint noise on tested car; not promoted to default.",
+    "fullGameQualityEvaluation": false
+  },
+  "privacy": "No personal project records, prompt transcripts, local job IDs or machine-specific log files are included.",
+  "notes": [
+    "These are observed prototype measurements, not a fresh-install claim for this publisher-prefixed package.",
+    "Cold starts vary with cache and disk. A skill does not guarantee artistic quality."
+  ]
+}

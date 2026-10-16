@@ -1,0 +1,30 @@
+[
+  {
+    "name": "model.gguf",
+    "folder": "audio/models/stable-audio-3-small-music",
+    "size": 1683570752,
+    "sha256": "89bb22db5fa68ab8f1d90af0a9f88121977c945bdb99a57c96b1e88fa34bf1c8",
+    "url": "https://huggingface.co/audio-cpp/audio.cpp-gguf/resolve/f861648c0c1f4da9f18e9a0ce5e217b0679bb2f5/Stable-Audio-3-Small-Music-GGUF/stable-audio-3-small-music-q8_0.gguf"
+  },
+  {
+    "name": "model.gguf",
+    "folder": "audio/models/stable-audio-3-small-sfx",
+    "size": 1683570688,
+    "sha256": "5bb1ec653134e63dac46264e336ae198a2590195fc996fcd0605021215e9b26f",
+    "url": "https://huggingface.co/audio-cpp/audio.cpp-gguf/resolve/f861648c0c1f4da9f18e9a0ce5e217b0679bb2f5/Stable-Audio-3-Small-SFX-GGUF/stable-audio-3-small-sfx-q8_0.gguf"
+  },
+  {
+    "name": "audio-v0.9.1-bin-windows-x64-cuda12.4.zip",
+    "folder": "downloads",
+    "size": 462376707,
+    "sha256": "f32a40f8fb14ac4772c9c25525f97715db228979178e51654da73aa65005c0ef",
+    "url": "https://github.com/0xShug0/audio.cpp/releases/download/v0.9.1/audio-v0.9.1-bin-windows-x64-cuda12.4.zip"
+  },
+  {
+    "name": "audio-v0.9.1-cudart-windows-x64-cuda12.4.zip",
+    "folder": "downloads",
+    "size": 607273675,
+    "sha256": "8bfdce7cb00b5a51560b5ab0d444344d86a2f0d7e2727bb7f18c15ef4734451b",
+    "url": "https://github.com/0xShug0/audio.cpp/releases/download/v0.9.1/audio-v0.9.1-cudart-windows-x64-cuda12.4.zip"
+  }
+]
