@@ -1599,7 +1599,9 @@ async function modelHome() {
   }
 }
 function child(root, relative) {
-  const result = path2.resolve(root, relative), rel = path2.relative(path2.resolve(root), result);
+  const portable = relative.replaceAll("\\", "/");
+  if (path2.posix.isAbsolute(portable) || path2.win32.isAbsolute(portable) || /^[a-z]:/i.test(portable)) throw Error("Download path must be relative.");
+  const result = path2.resolve(root, portable), rel = path2.relative(path2.resolve(root), result);
   if (!rel || rel.startsWith("..") || path2.isAbsolute(rel)) throw Error("Path leaves the managed model directory.");
   return result;
 }

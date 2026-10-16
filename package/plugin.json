@@ -1,7 +1,7 @@
 {
   "apiVersion": 3,
   "id": "theastraydev-local-models",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "name": "Local Models",
   "publisher": "TheAstrayDev",
   "description": "Experimental Windows/NVIDIA local image, audio and 3D generation. Requires an unreleased native-job host extension; not compatible with stock Genex 0.1.7. One GPU worker at a time.",

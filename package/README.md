@@ -4,7 +4,7 @@ Generate game images, textures, sound, music and static textured 3D on a Windows
 
 **Development-host prerelease. This package does not install or run on stock Genex 0.1.7, or current unmodified `dev`.** Its 35-minute Hunyuan recipe needs an unreleased native-job timeout extension. The tested local host also exposes retained native outputs in Assets before a build lands or after it is canceled. The catalog submission is a draft, not a ready-to-install listing. See [Compatibility](docs/compatibility.md).
 
-Plugin ID: `theastraydev-local-models`. Publisher: `TheAstrayDev`. Version: `0.1.9`. This is the first public release; earlier versions and the bare `local-models` ID were local prototypes. The public ID follows the catalog's GitHub-owner naming rule. Do not enable the public package beside the old prototype: their independent plugin locks would not serialize work with one another. This package does not migrate or remove prototype data.
+Plugin ID: `theastraydev-local-models`. Publisher: `TheAstrayDev`. Version: `0.1.10`. This is the first catalog submission. Version 0.1.9 was an initial public review build; 0.1.10 fixes its Linux CI path-validation failure without replacing that artifact. The bare `local-models` ID remains a local prototype. The public ID follows the catalog's GitHub-owner naming rule. Do not enable the public package beside the old prototype: their independent plugin locks would not serialize work with one another. This package does not migrate or remove prototype data.
 
 ## What it does
 

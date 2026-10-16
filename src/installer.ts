@@ -21,7 +21,9 @@ export async function modelHome(){
  try{await access('D:/');return 'D:/Genex-Local-Models';}catch{return path.join(os.homedir(),'Genex-Local-Models');}
 }
 export function child(root:string,relative:string){
- const result=path.resolve(root,relative),rel=path.relative(path.resolve(root),result);
+ const portable=relative.replaceAll('\\','/');
+ if(path.posix.isAbsolute(portable)||path.win32.isAbsolute(portable)||/^[a-z]:/i.test(portable))throw Error('Download path must be relative.');
+ const result=path.resolve(root,portable),rel=path.relative(path.resolve(root),result);
  if(!rel||rel.startsWith('..')||path.isAbsolute(rel))throw Error('Path leaves the managed model directory.');
  return result;
 }

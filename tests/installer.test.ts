@@ -23,7 +23,7 @@ test('corrupt downloads and ignored resume ranges never activate a model',async(
  await assert.rejects(downloadAsset(root,asset,new AbortController().signal,()=>{},corrupt),/ignored resume/);
 });
 test('paths and model identifiers cannot select an arbitrary install destination',()=>{
- for(const file of ['../escape','C:/elsewhere','..'])assert.throws(()=>child('C:/managed',file));
+ for(const file of ['../escape','..\\escape','C:/elsewhere','C:elsewhere','C:\\elsewhere','\\\\server\\share','/elsewhere','..'])assert.throws(()=>child('C:/managed',file));
  assert.throws(()=>startInstallation('https://arbitrary-model'),/Unknown reviewed/);
 });
 test('zip extraction rejects traversal and links and extracts a regular file',async()=>{

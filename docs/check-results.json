@@ -1,6 +1,6 @@
 {
   "passed": true,
-  "version": "0.1.9",
+  "version": "0.1.10",
   "id": "theastraydev-local-models",
   "freshRegistryInstall": true,
   "harmlessToolCalls": [
@@ -42,5 +42,11 @@
     "notes": [
       "Third-party bundled encoding table and files outside scanner text extensions remain visible; no warnings are suppressed."
     ]
+  },
+  "redFirst": {
+    "check": "Linux CI rejected the existing hostile installer-path assertion on 0.1.9",
+    "url": "https://github.com/TheAstrayDev/genex-local-models/actions/runs/38913286804",
+    "assertionFlipped": false,
+    "additionalHostilePaths": true
   }
 }
