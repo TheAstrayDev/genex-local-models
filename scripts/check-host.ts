@@ -5,7 +5,7 @@ import {pathToFileURL} from 'node:url';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 
-if(!process.env.GENEX_SOURCE_DIR)throw Error('Set GENEX_SOURCE_DIR to a compatible Genex checkout. Stock Genex rejects the 35-minute recipe.');
+if(!process.env.GENEX_SOURCE_DIR)throw Error('Set GENEX_SOURCE_DIR to a Genex checkout. No timeout patch is needed for 0.1.13.');
 const host=path.resolve(process.env.GENEX_SOURCE_DIR),source=path.resolve(import.meta.dirname,'../package');
 const load=(file:string)=>import(pathToFileURL(path.join(host,file)).href);
 const {PluginRegistry}=await load('src/substrate/plugins/registry.ts');

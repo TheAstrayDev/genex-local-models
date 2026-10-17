@@ -1,7 +1,7 @@
 {
-  "version": "0.1.12",
-  "status": "development-host prerelease",
-  "host": "Local Genex 0.1.7-ui2 with unreleased 35-minute native-job and retained-asset-library changes",
+  "version": "0.1.13",
+  "status": "experimental prerelease",
+  "host": "Existing local Windows LPAC host for GPU checks; unchanged upstream five-minute validator/registry for package checks",
   "stockCompatible": false,
   "hardware": {
     "gpu": "RTX 4070 12 GB",
@@ -28,10 +28,22 @@
     "Cold starts vary with cache and disk. A skill does not guarantee artistic quality."
   ],
   "publicChecks": {
-    "typescript": 31,
+    "typescript": 40,
     "python": 14,
     "metalVulkanProfiles": "experimental",
     "fullInferenceOnMacAmd": false,
-    "stockHostCompatible": false
+    "stockHostCompatible": false,
+    "stockTimeoutDeclarationAccepted": true,
+    "nativeJobTimeoutMs": 300000,
+    "separateShapePaintJobs": true,
+    "realSplitGpuCheck": {
+      "shapeRuntimeExitSeconds": 297.5,
+      "shapeOutputWritten": true,
+      "finalNativeState": "failed",
+      "reason": "Local Windows host native access recovery failed",
+      "paintStarted": false,
+      "endToEndPassed": false,
+      "trustedCleanupOnlySucceeded": true
+    }
   }
 }

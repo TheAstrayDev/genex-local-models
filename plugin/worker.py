@@ -171,7 +171,7 @@ def cleanup_model_auxiliary(output):
             auxiliary.unlink()
 
 
-def run(kind, output, encoded, input_image=None):
+def run(kind, output, encoded, input_image=None, input_shape=None):
     request = request_value(encoded)
     root = runtime_root(sys.executable)
     output = Path(output).resolve()
@@ -204,9 +204,10 @@ def run(kind, output, encoded, input_image=None):
         # noise rather than requesting the optional nvcc-only RNG helper.
         env["ENGINE_TORCH_SAMPLING_POLICY"] = "default"
         command = audio_command(root, request, output)
-    elif kind == "model":
+    elif kind in {"model-shape", "model-paint"}:
         from hunyuan import command as hunyuan_command
-        command = hunyuan_command(root, request, output, input_image)
+        command = hunyuan_command(root, request, output, input_image,
+                                  "paint" if kind == "model-paint" else "shape", input_shape)
     else:
         raise ValueError("Unknown generation kind")
     # Retain diagnostic output even if the outer plugin wait ends before its native job.
@@ -242,26 +243,32 @@ def run(kind, output, encoded, input_image=None):
         raise RuntimeError("Worker returned without an asset")
     with output.open("rb") as asset:
         header = asset.read(12)
-    expected = {"image": b"\x89PNG\r\n\x1a\n", "audio": b"RIFF", "model": b"glTF"}[kind]
+    expected = {"image": b"\x89PNG\r\n\x1a\n", "audio": b"RIFF", "model-shape": b"glTF", "model-paint": b"glTF"}[kind]
     if not header.startswith(expected):
         raise RuntimeError("Worker output has an unexpected file format")
-    if kind == "model":
+    if kind.startswith("model-"):
         cleanup_model_auxiliary(output)
+    if kind == "model-shape":
+        with output.with_name("reference.png").open("rb") as reference:
+            if reference.read(8) != b"\x89PNG\r\n\x1a\n":
+                raise RuntimeError("Shape job did not retain its prepared reference PNG")
     receipt = {"model": request["model"], "seed": request["seed"], "seconds": round(time.monotonic() - started, 3),
                "file": output.name, "bytes": output.stat().st_size,
                "lifecycle": "child process exited; this worker exits next"}
     if kind == "image":
         receipt.update({"purpose": image_purpose(request), "requestedSeed": requested_seed, "attempts": attempt + 1,
                         "promptPolicy": "qwen-native-rgba-v1" if cutout else "full-image-v1", "alpha": transparency})
-    elif kind == "model":
+    elif kind.startswith("model-"):
         from hunyuan import quality_profile
-        quality = request.get("quality", "high")
-        receipt.update({"quality": quality, "profile": quality_profile(quality)})
+        quality = request.get("quality", "balanced")
+        receipt.update({"quality": quality, "profile": quality_profile(quality), "stage": kind.removeprefix("model-"),
+                        "textured": kind == "model-paint"})
     print("GENEX_LOCAL_RESULT " + json.dumps(receipt), flush=True)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) not in (15, 16):
-        raise SystemExit("Expected kind, output, twelve request chunks and optional image")
+    if len(sys.argv) not in (15, 16, 17):
+        raise SystemExit("Expected kind, output, twelve request chunks and declared image/shape inputs")
     encoded = "".join(chunk for chunk in sys.argv[3:15] if chunk != ".")
-    run(sys.argv[1], sys.argv[2], encoded, sys.argv[15] if len(sys.argv) == 16 else None)
+    run(sys.argv[1], sys.argv[2], encoded, sys.argv[15] if len(sys.argv) >= 16 else None,
+        sys.argv[16] if len(sys.argv) == 17 else None)

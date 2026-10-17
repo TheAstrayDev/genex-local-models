@@ -11,7 +11,7 @@ export function compatibility(model:string,host:Host=currentHost()){
  const apple=host.platform==='darwin'&&host.arch==='arm64';
  const [major=0,minor=0]=host.release.split('.').map(Number);
  if(model==='hunyuan3d-2-turbo')return {supported:windows,canInstall:false,
-  requirement:'Windows x64 + NVIDIA CUDA. Separate verified Hunyuan Portable shape/texture setup; no Mac/AMD adapter in this release.'};
+  requirement:'Windows x64 + NVIDIA CUDA. RTX 4070 12 GB VRAM / 32 GB RAM tested; five-minute cap per shape/paint job, slower GPUs may time out. Separate verified Hunyuan Portable shape/texture setup; no Mac/AMD adapter in this release.'};
  const image=model==='qwen-image-2.1-turbo';
  const supported=windows||(apple&&(image?major>=25:major>22||(major===22&&minor>=4)));
  return {supported,canInstall:supported,requirement:image

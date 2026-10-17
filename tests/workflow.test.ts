@@ -7,9 +7,11 @@ import {createPlugin,requestFor} from '../src/backend.ts';
 import {catalog} from '../src/catalog.ts';
 import type {PluginContext} from '../vendor/genex-sdk.d.ts';
 import {assetEntries} from '../src/assets.ts';
+import {createHash} from 'node:crypto';
 
 const imageId='0c770828-6f7f-446a-9f67-9ca2d9d47ff6';
 const modelId='88e6cf05-7940-4485-9737-380215946aa1';
+const paintId='9b53c139-39b8-4711-a61b-8b11268f6403';
 
 async function fixture(t:any,host={platform:'win32',arch:'x64',release:'10.0.26100'}){
  const root=await mkdtemp(path.join(os.tmpdir(),'local-model-workflow-'));
@@ -30,10 +32,18 @@ async function fixture(t:any,host={platform:'win32',arch:'x64',release:'10.0.261
   if(method==='native.jobs')return [...jobs.values()];
   if(method==='jobs.read'){if(!records.has(args.id))throw Error('ENOENT');return records.get(args.id);}
   if(method==='jobs.write'){records.set(args.id,args.value);return;}
-  if(method==='assets.deliver')return [`assets/theastraydev-local-models/${args.jobId}/${args.jobId===imageId?'image.png':'model.glb'}`];
+  if(method==='assets.deliver'){
+   const files=(jobs.get(args.jobId)?.files??[]).map((file:string)=>`assets/theastraydev-local-models/${args.jobId}/${file}`);
+   for(const file of files){await mkdir(path.dirname(path.join(root,file)),{recursive:true});await writeFile(path.join(root,file),'fixture');}
+   return files;
+  }
   if(method==='native.run'){
-   const id=args.job==='image'?imageId:modelId;
-   const job={id,project:'racer',state:'completed',recipe:args.job,output:path.join(root,'output'),files:[args.job==='image'?'image.png':'model.glb'],stdout:'GENEX_LOCAL_RESULT '+JSON.stringify({file:args.job==='image'?'image.png':'model.glb'})};
+   const id=args.job==='image'?imageId:args.job==='model-shape'?modelId:paintId;
+   const request=JSON.parse(Buffer.from(Object.values(args.values).filter(v=>v!=='.').join(''),'base64').toString('utf8'));
+   const files=args.job==='image'?['image.png']:args.job==='model-shape'?['shape.glb','reference.png']:['model.glb'];
+   const {readFile}=await import('node:fs/promises');
+   const inputs=Object.fromEntries(await Promise.all(Object.entries(args.inputs).map(async([key,file])=>[key,{file,sha256:createHash('sha256').update(await readFile(path.join(root,file as string))).digest('hex')}])));
+   const job={id,project:'racer',state:'completed',recipe:args.job,output:path.join(root,'output'),inputs,files,stdout:'GENEX_LOCAL_RESULT '+JSON.stringify({file:files[0],seed:request.seed,quality:request.quality})};
    jobs.set(id,job);return job;
   }
   throw Error('Unexpected host call '+method);
@@ -73,7 +83,9 @@ test('image job to 3D preserves the exact UUID and does not regenerate the refer
  assert.equal(f.calls.filter(c=>c.method==='native.run').length,1);
  assert.equal(f.calls.find(c=>c.method==='native.run')!.args.inputs.image,`assets/theastraydev-local-models/${imageId}/image.png`);
  assert.equal(result.referenceJobId,imageId);assert.equal(result.jobId,modelId);
- assert.equal(result.assets[0].url,`/assets/theastraydev-local-models/${modelId}/model.glb`);
+ assert.equal(result.assets[0].url,`/assets/theastraydev-local-models/${modelId}/shape.glb`);
+ assert.equal(result.completed,false);assert.equal(result.textured,false);
+ assert.equal(result.nextCall.arguments.shapeJobId,modelId);
 });
 
 test('text-to-3D returns an explicit continuation before using the mesh tool budget',async t=>{
@@ -87,8 +99,14 @@ test('text-to-3D returns an explicit continuation before using the mesh tool bud
  assert.equal(reference.nextCall.arguments.quality,'balanced');
  assert.equal(reference.nextCall.tool,'theastraydev-local-models__generate-model');
  const result:any=await f.plugin.tool!('generate-model',reference.nextCall.arguments,f.ctx);
- assert.deepEqual(f.calls.filter(c=>c.method==='native.run').map(c=>c.args.job),['image','model']);
+ assert.deepEqual(f.calls.filter(c=>c.method==='native.run').map(c=>c.args.job),['image','model-shape']);
  assert.equal(result.referenceJobId,imageId);
+ const painted:any=await f.plugin.tool!('generate-model',result.nextCall.arguments,f.ctx);
+ assert.deepEqual(f.calls.filter(c=>c.method==='native.run').map(c=>c.args.job),['image','model-shape','model-paint']);
+ assert.equal(painted.completed,true);assert.equal(painted.textured,true);assert.equal(painted.shapeJobId,modelId);
+ assert.equal(painted.assets[0].url,`/assets/theastraydev-local-models/${paintId}/model.glb`);
+ const inputs=f.calls.filter(c=>c.method==='native.run').at(-1)!.args.inputs;
+ assert.deepEqual(inputs,{image:`assets/theastraydev-local-models/${modelId}/reference.png`,shape:`assets/theastraydev-local-models/${modelId}/shape.glb`});
  await assert.rejects(f.plugin.tool!('generate-model',{name:'car',prompt:'car',imageJobId:imageId},f.ctx),/exactly one/i);
 });
 
@@ -108,7 +126,8 @@ test('explicit high quality survives the reference continuation and reaches the 
  const decode=(call:any)=>JSON.parse(Buffer.from(Object.values(call.args.values).filter(v=>v!=='.').join(''),'base64').toString('utf8'));
  assert.equal(decode(f.calls.find(c=>c.method==='native.run')).size,768);
  assert.equal(reference.nextCall.arguments.quality,'high');
- await f.plugin.tool!('generate-model',reference.nextCall.arguments,f.ctx);
+ const shape:any=await f.plugin.tool!('generate-model',reference.nextCall.arguments,f.ctx);
+ await f.plugin.tool!('generate-model',shape.nextCall.arguments,f.ctx);
  assert.equal(decode(f.calls.filter(c=>c.method==='native.run').at(-1)).quality,'high');
 });
 
@@ -132,7 +151,7 @@ test('retained TRELLIS results stay retrievable after replacing the model adapte
 test('mesh failure reports its retained reference for retry without another image',async t=>{
  const f=await fixture(t),host=f.ctx.host;
  f.ctx.host=(async(method:string,args:any)=>{
-  if(method==='native.run'&&args.job==='model')return {id:modelId,state:'failed',reason:'fixture VRAM failure'};
+  if(method==='native.run'&&args.job==='model-shape')return {id:modelId,state:'failed',reason:'fixture VRAM failure'};
   return (host as any)(method,args);
  }) as PluginContext['host'];
  const reference:any=await f.plugin.tool!('generate-model',{name:'car',prompt:'An isolated car'},f.ctx);
@@ -152,6 +171,78 @@ test('unassigned mesh route blocks an expensive automatic image generation',asyn
 
 test('asset URLs follow the host public layout and preserve escaped filenames',()=>{
  assert.deepEqual(assetEntries(['public/assets/a b.png','assets/coin.png','Assets/Generated/theastraydev-local-models/car.glb']).map(a=>a.url),['/assets/a%20b.png','/assets/coin.png',null]);
+});
+
+test('repeated shape and paint continuations reuse completed jobs instead of generating twice',async t=>{
+ const f=await fixture(t),shape:any=await f.plugin.tool!('generate-model',{name:'car',imageJobId:imageId},f.ctx);
+ const duplicate:any=await f.plugin.tool!('generate-model',{name:'car',imageJobId:imageId},f.ctx);
+ assert.equal(duplicate.shapeJobId,shape.shapeJobId);assert.equal(duplicate.reused,true);
+ const painted:any=await f.plugin.tool!('generate-model',shape.nextCall.arguments,f.ctx);
+ const again:any=await f.plugin.tool!('generate-model',shape.nextCall.arguments,f.ctx);
+ assert.equal(again.jobId,painted.jobId);assert.equal(again.reused,true);assert.equal(again.completed,true);
+ assert.deepEqual(f.calls.filter(c=>c.method==='native.run').map(c=>c.args.job),['model-shape','model-paint']);
+});
+
+test('a changed project reference is new work, while identical bytes reuse its saved shape',async t=>{
+ const f=await fixture(t),file='assets/owned.png';
+ await mkdir(path.join(f.ctx.directory!,'assets'),{recursive:true});
+ await writeFile(path.join(f.ctx.directory!,file),'first reference');
+ await f.plugin.tool!('generate-model',{name:'car',image:file},f.ctx);
+ await writeFile(path.join(f.ctx.directory!,file),'changed reference');
+ await f.plugin.tool!('generate-model',{name:'car',image:file},f.ctx);
+ const reused:any=await f.plugin.tool!('generate-model',{name:'car',image:file},f.ctx);
+ assert.equal(reused.reused,true);
+ assert.equal(f.calls.filter(c=>c.method==='native.run').length,2);
+});
+
+for(const state of ['failed','cancelled','interrupted','running'])test(`paint ${state} retains the shape, reports incomplete texturing and prevents an automatic duplicate`,async t=>{
+ const f=await fixture(t),shape:any=await f.plugin.tool!('generate-model',{name:'car',imageJobId:imageId},f.ctx),host=f.ctx.host;
+ let launches=0;
+ f.ctx.host=(async(method:string,args:any)=>{
+  if(method==='native.run'&&args.job==='model-paint'){
+   launches++;
+   const job={id:paintId,project:'racer',recipe:'model-paint',state,reason:'five-minute timeout or cancellation',inputs:Object.fromEntries(Object.entries(args.inputs).map(([key,file])=>[key,{file,sha256:createHash('sha256').update('fixture').digest('hex')}])),files:[]};
+   f.jobs.set(paintId,job);return job;
+  }
+  return host(method,args);
+ }) as PluginContext['host'];
+ for(let attempt=0;attempt<2;attempt++){
+  const result:any=await f.plugin.tool!('generate-model',shape.nextCall.arguments,f.ctx);
+  assert.equal(result.completed,false);assert.equal(result.textured,false);assert.equal(result.state,'paint-incomplete');
+  assert.equal(result.shapeJobId,modelId);assert.equal(result.nextCall,undefined);
+  assert.match(result.instruction,/Painting did not finish/);
+  assert.equal(result.shapeAssets[0].url,`/assets/theastraydev-local-models/${modelId}/shape.glb`);
+ }
+ assert.equal(launches,1);
+ const retained:any=await f.plugin.tool!('retrieve',{id:modelId},f.ctx);
+ assert.equal(retained.restored,true);assert.equal(f.jobs.get(modelId).state,'completed');
+ const listing:any=await f.plugin.tool!('assets',{},f.ctx);
+ assert.ok(listing.assets.some((job:any)=>job.jobId===modelId));
+});
+
+test('an aborted paint call releases its lease and still returns the retained shape',async t=>{
+ const f=await fixture(t),shape:any=await f.plugin.tool!('generate-model',{name:'car',imageJobId:imageId},f.ctx),host=f.ctx.host;
+ const controller=new AbortController();f.ctx.signal=controller.signal;
+ f.ctx.host=(async(method:string,args:any)=>{
+  if(method==='native.run'&&args.job==='model-paint'){controller.abort();throw new DOMException('Cancelled','AbortError');}
+  return host(method,args);
+ }) as PluginContext['host'];
+ const result:any=await f.plugin.tool!('generate-model',shape.nextCall.arguments,f.ctx);
+ assert.equal(result.state,'paint-incomplete');assert.equal(result.shapeJobId,modelId);
+ f.ctx.signal=new AbortController().signal;
+ const restored:any=await f.plugin.tool!('retrieve',{id:modelId},f.ctx);assert.equal(restored.restored,true);
+ const {readFile}=await import('node:fs/promises');
+ await assert.rejects(readFile(path.join(f.ctx.directory!,'generation.lock')),{code:'ENOENT'});
+});
+
+test('painting rejects cross-project, unfinished, wrong-recipe and changed-profile jobs before inference',async t=>{
+ const f=await fixture(t),shape:any=await f.plugin.tool!('generate-model',{name:'car',imageJobId:imageId},f.ctx);
+ await assert.rejects(f.plugin.tool!('generate-model',{...shape.nextCall.arguments,quality:'high'},f.ctx),/preserve/);
+ for(const change of [{project:'other-game'},{state:'failed'},{recipe:'image'}]){
+  const original=f.jobs.get(modelId);f.jobs.set(modelId,{...original,...change});
+  await assert.rejects(f.plugin.tool!('generate-model',shape.nextCall.arguments,f.ctx));f.jobs.set(modelId,original);
+ }
+ assert.equal(f.calls.filter(c=>c.method==='native.run').length,1);
 });
 
 test('a plugin page without an open game cannot restore any files',async t=>{

@@ -147,7 +147,12 @@ class WorkerTests(unittest.TestCase):
         root = Path('D:/owned-runtime')
         command = hunyuan.command(root, {'model': 'hunyuan3d-2-turbo', 'seed': 42}, 'out.glb', 'in.png')
         self.assertEqual(command[0], str(root / 'python.exe'))
-        self.assertEqual(command[-5:], ['full', 'in.png', 'out.glb', '42', 'balanced'])
+        self.assertEqual(command[-5:], ['shape', 'in.png', 'out.glb', '42', 'balanced'])
+        self.assertEqual(hunyuan.command(root, {'model': 'hunyuan3d-2-turbo', 'seed': 42}, 'out.glb', 'in.png', 'paint', 'shape.glb')[-6:],
+                         ['paint', 'shape.glb', 'out.glb', '42', 'balanced', 'in.png'])
+        for phase, mesh in [('full', None), ('paint', None), ('shape', 'unexpected.glb')]:
+            with self.assertRaises(ValueError):
+                hunyuan.command(root, {'model': 'hunyuan3d-2-turbo', 'seed': 42}, 'out.glb', 'in.png', phase, mesh)
         for request in [{'model': 'trellis-2-low-vram', 'seed': 42},
                         {'model': 'hunyuan3d-2-turbo', 'seed': 42, 'program': 'cmd.exe'},
                         {'model': 'hunyuan3d-2-turbo', 'seed': True}]:
@@ -181,22 +186,23 @@ class WorkerTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,'changed the source surface'):
             hunyuan.preserve_surface_normals(source,result)
 
-    def test_paint_failure_is_not_reported_as_a_successful_shape(self):
+    def test_paint_failure_preserves_separately_completed_shape_and_reference(self):
         import tempfile
-        from types import SimpleNamespace
         from unittest.mock import patch
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
-            source = root / 'Hunyuan3D-2/hy3dgen/shapegen/pipelines.py'
-            source.parent.mkdir(parents=True)
-            source.write_text('# owned test fixture')
+            mesh, reference = root / 'shape.glb', root / 'reference.png'
+            mesh.write_bytes(b'glTF-retained-shape'); reference.write_bytes(b'prepared-reference')
             with patch.object(hunyuan.sys, 'executable', str(root / 'python.exe')), \
-                 patch.object(hunyuan.sys, 'argv', ['hunyuan.py', 'full', 'in.png', 'out.glb', '42']), \
+                 patch.object(hunyuan.sys, 'argv', ['hunyuan.py', 'paint', str(mesh), str(root/'model.glb'), '42', 'balanced', str(reference)]), \
                  patch.dict(hunyuan.os.environ, {'TEMP': folder, 'TMPDIR': folder}), \
-                 patch.object(hunyuan.subprocess, 'run', side_effect=[SimpleNamespace(returncode=0), SimpleNamespace(returncode=1)]) as run:
+                 patch.object(hunyuan, 'setup'), patch.object(hunyuan, 'shape') as shape, \
+                 patch.object(hunyuan, 'paint', side_effect=RuntimeError('paint failed')) as paint:
                 with self.assertRaisesRegex(RuntimeError, 'paint failed'):
                     hunyuan.main()
-                self.assertEqual([call.args[0][2] for call in run.call_args_list], ['shape', 'paint'])
+                shape.assert_not_called();self.assertEqual(paint.call_args.args[-1],str(reference))
+            self.assertEqual(mesh.read_bytes(),b'glTF-retained-shape')
+            self.assertEqual(reference.read_bytes(),b'prepared-reference')
     def test_only_known_auxiliary_files_are_removed(self):
         import tempfile
         with tempfile.TemporaryDirectory() as root:

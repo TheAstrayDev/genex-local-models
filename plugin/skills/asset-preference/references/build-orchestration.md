@@ -22,7 +22,7 @@ If the host cannot overlap coding and generation, start an independent reusable 
 
 ## Consume completed work before requesting variations
 
-Prompt-to-3D has two calls. Follow `nextCall` with the exact retained reference to finish the mesh. A reference PNG is an intermediate input; it need not become an in-game billboard and does not satisfy a requested 3D model.
+Prompt-to-3D has three calls: reference, shape, paint. Follow each `nextCall` with the exact retained `imageJobId`, then `shapeJobId`. Shape and paint are separate five-minute jobs. If paint returns `paint-incomplete`, retain the untextured `shapeAssets`, state that texturing did not finish, and do not automatically retry or regenerate. A reference PNG is an intermediate input; it need not become an in-game billboard and does not satisfy a requested 3D model.
 
 After a final game asset is delivered, send its exact ID/URL, intended role, scale/orientation/material needs and consumer interface to the integration owner. Connect it to the real entity or event before spending another generation on an unplanned variation of that role. The asset owner can continue other already-planned categories while the consumer integrates, if the host supports it; GPU calls themselves stay sequential. Do not let vague "integration later" accumulate a pile of unused assets.
 

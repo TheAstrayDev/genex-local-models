@@ -1,7 +1,7 @@
 import {mkdir,readFile,writeFile,rename,lstat,readdir,realpath} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
 import {catalog,defaults,routes,validateAssignments,type Route,type Assignments} from './catalog.ts';
 import {ModelQueue} from './queue.ts';
 import {installation,startInstallation,cancelInstallation,modelHome} from './installer.ts';
@@ -96,7 +96,7 @@ export function requestFor(name:string,args:Record<string,unknown>):{route:Route
  return {route,request:{prompt:args.prompt,seed:Number(seed),duration},inputs:{}};
 }
 
-async function generate(name:string,args:Record<string,unknown>,ctx:PluginContext,host:Host){
+async function generate(name:string,args:Record<string,unknown>,ctx:PluginContext,host:Host,shape?:string){
  const request=requestFor(name,args),root=await storage(ctx);
  const selection=await assignments(root),selected=selection[request.route];
  if(!selected)throw Error(`No local model is assigned to ${request.route}. Choose one in Plugins → Local Models.`);
@@ -106,16 +106,43 @@ async function generate(name:string,args:Record<string,unknown>,ctx:PluginContex
   activeModel=selected;
   try{
   const started=Date.now();
+  const recipe=request.route==='model'?(shape?'model-paint':'model-shape'):request.route==='music'||request.route==='sfx'?'audio':'image';
+  if(shape)request.inputs.shape=shape;
+  if(request.route==='model'){
+   const fingerprints=Object.fromEntries(await Promise.all(Object.entries(request.inputs).map(async([key,file])=>{
+    if(!ctx.directory||!await regular(ctx.directory,file))throw Error('Model input must be a regular file inside this project.');
+    const target=path.join(ctx.directory,file);
+    if((await lstat(target)).size>104857600)throw Error('Model input exceeds 100 MB.');
+    return [key,createHash('sha256').update(await readFile(target)).digest('hex')];
+   })));
+   // The filesystem lease also serializes reuse checks across plugin processes.
+   const previous=(await ctx.host('native.jobs')).filter(job=>job.project===ctx.project&&job.recipe===recipe&&
+    Object.entries(request.inputs).every(([key,file])=>job.inputs?.[key]?.file===file&&job.inputs[key].sha256===fingerprints[key])).reverse().find(job=>{
+     if(job.state!=='completed')return true; // An interrupted wait must not start the same work again.
+     const line=job.stdout?.split('\n').findLast(line=>line.startsWith(MODEL_RESULT));
+     if(!line)return true;
+     const receipt=JSON.parse(line.slice(MODEL_RESULT.length));
+     return receipt.seed===request.request.seed&&receipt.quality===request.request.quality;
+    });
+   if(previous){
+    if(previous.state!=='completed')throw Error(`Existing ${recipe} job ${previous.id} is ${previous.state}: ${previous.reason??''}. Inspect or retrieve this exact job; no duplicate was started.`);
+    const restored=await retrieve(ctx,previous.id);
+    const line=previous.stdout?.split('\n').findLast(line=>line.startsWith(MODEL_RESULT));
+    if(!line)throw Error(`Retained job ${previous.id} has no verified receipt. No duplicate was started.`);
+    const receipt=JSON.parse(line.slice(MODEL_RESULT.length)),files=restored.record.files as string[];
+    return {...restored.record,jobId:previous.id,files,assets:assetEntries(files),worker:receipt,reused:true};
+   }
+  }
   const encoded=Buffer.from(JSON.stringify({...request.request,model:selected})).toString('base64');
   if(encoded.length>12288)throw Error('Encoded generation request exceeds the native API limit.');
   const values=Object.fromEntries(Array.from({length:12},(_,index)=>[`r${index}`,encoded.slice(index*1024,(index+1)*1024)||'.']));
-  const job=await ctx.host('native.run',{job:request.route==='model'?'model':request.route==='music'||request.route==='sfx'?'audio':'image',inputs:request.inputs,values});
-  if(job.state!=='completed')throw Error(`Local generation ${job.state}: ${job.reason??''} ${job.stdout?.slice(-1800)??''} ${job.stderr?.slice(-1200)??''}. The worker has stopped; no paid fallback was used.`);
+  const job=await ctx.host('native.run',{job:recipe,inputs:request.inputs,values});
+  if(job.state!=='completed')throw Error(`Local generation ${job.state} (job ${job.id}): ${job.reason??''} ${job.stdout?.slice(-1800)??''} ${job.stderr?.slice(-1200)??''}. Inspect this exact job before any retry; no paid fallback was used.`);
   const line=job.stdout?.split('\n').findLast(line=>line.startsWith(MODEL_RESULT));
   if(!line)throw Error(`Job ${job.id} produced no verified worker receipt. Inspect this job before retrying.`);
   const receipt=JSON.parse(line.slice(MODEL_RESULT.length));
   const files=await ctx.host('assets.deliver',{output:job.output,jobId:job.id});
-  const result={jobId:job.id,name:args.name,model:selected,task:request.route,files,assets:assetEntries(files),seconds:(Date.now()-started)/1000,worker:receipt,sleep:'process exited; model weights released',use:{stage:'unconfirmed'},integration:integrationFor(job.id,files)};
+  const result={jobId:job.id,name:args.name,model:selected,task:request.route,files,assets:assetEntries(files),seconds:(Date.now()-started)/1000,worker:receipt,sleep:'process exited; model weights released',use:{stage:'unconfirmed'},integration:integrationFor(job.id,files),...(request.route==='model'?{stage:shape?'paint':'shape',textured:!!shape}: {})};
   await ctx.host('jobs.write',{id:job.id,value:result});
   let recent:any[]=[];try{recent=JSON.parse(await readFile(path.join(root,'recent.json'),'utf8'));}catch{}
   recent.unshift({...result,at:new Date().toISOString()});
@@ -127,11 +154,36 @@ async function generate(name:string,args:Record<string,unknown>,ctx:PluginContex
 
 /** One request can create its own reference; every GPU phase keeps the existing single-worker lease. */
 async function generateModel(args:Record<string,unknown>,ctx:PluginContext,host:Host){
- const allowed=['name','image','imageJobId','prompt','seed','quality'];
+ const allowed=['name','image','imageJobId','shapeJobId','prompt','seed','quality'];
  if(Object.keys(args).some(key=>!allowed.includes(key)))throw Error('Unknown generation argument.');
- const choices=['image','imageJobId','prompt'].filter(key=>args[key]!==undefined);
- if(choices.length!==1)throw Error('Choose exactly one of image, imageJobId or prompt.');
- if(choices[0]==='image')return generate('generate-model',args,ctx,host);
+ const choices=['image','imageJobId','shapeJobId','prompt'].filter(key=>args[key]!==undefined);
+ if(choices.length!==1)throw Error('Choose exactly one of image, imageJobId, shapeJobId or prompt.');
+ if(choices[0]==='shapeJobId'){
+  const shape=await nativeResult(ctx,args.shapeJobId);
+  if(shape.state!=='completed'||shape.recipe!=='model-shape')throw Error('Use a completed model-shape job from this project.');
+  const line=shape.stdout?.split('\n').findLast(line=>line.startsWith(MODEL_RESULT));
+  if(!line)throw Error('Shape job has no verified worker receipt. Retrieve it without regenerating.');
+  const receipt=JSON.parse(line.slice(MODEL_RESULT.length));
+  if((args.seed!==undefined&&args.seed!==receipt.seed)||(args.quality!==undefined&&args.quality!==receipt.quality))throw Error('Painting must preserve the shape job seed and quality.');
+  const delivered=await retrieve(ctx,shape.id),files=delivered.record.files as string[];
+  const mesh=files.find(file=>file.endsWith('/shape.glb')),image=files.find(file=>file.endsWith('/reference.png'));
+  if(!mesh||!image)throw Error(`Shape job ${shape.id} is missing its mesh or prepared reference. No generation was started.`);
+  requestFor('generate-model',{name:args.name,image,seed:receipt.seed,quality:receipt.quality});
+  const retained={shapeJobId:shape.id,shapeAssets:assetEntries(files),textured:false};
+  try{
+   const result=await generate('generate-model',{name:args.name,image,seed:receipt.seed,quality:receipt.quality},ctx,host,mesh);
+   const completed={...result,shapeJobId:shape.id,completed:true,textured:true,state:'completed'};
+   await ctx.host('jobs.write',{id:result.jobId,value:completed});
+   return completed;
+  }catch(error){
+   return {...retained,completed:false,state:'paint-incomplete',error:String(error),
+    instruction:'Painting did not finish. The completed untextured shape and prepared reference are retained at shapeAssets. Do not report a textured model, regenerate the shape, retry automatically or use a paid fallback. Retrieve the exact shapeJobId to use the saved shape.'};
+  }
+ }
+ const shapeReady=(result:any,referenceJobId?:string)=>({...result,referenceJobId,shapeJobId:result.jobId,state:'shape-ready',completed:false,textured:false,
+  nextCall:{tool:'theastraydev-local-models__generate-model',arguments:{name:args.name,shapeJobId:result.jobId}},
+  instruction:'The untextured shape and prepared reference are saved. Immediately follow nextCall to paint this exact shape in a separate five-minute job. If painting fails, keep this shape; do not regenerate it.'});
+ if(choices[0]==='image')return shapeReady(await generate('generate-model',args,ctx,host));
  // Validate everything before an expensive reference generation or any delivery.
  const selection=await state(ctx,host),selected=selection.assignments.model;
  const model=selection.models.find(model=>model.id===selected);
@@ -140,8 +192,7 @@ async function generateModel(args:Record<string,unknown>,ctx:PluginContext,host:
  let referenceJobId=args.imageJobId;
  if(choices[0]==='prompt'){
   const image=await generate('generate-image',{name:args.name,prompt:args.prompt,task:'image',purpose:'model-reference',size:profile==='high'?768:512,seed:args.seed},ctx,host);
-  // Hunyuan can use most of Genex's five-minute tool budget itself. Retain the
-  // reference and let Studio continue in a second call, without asking the user.
+  // Each GPU phase gets its own native job and outer tool-call budget.
   return {state:'reference-ready',completed:false,referenceJobId:image.jobId,referenceAssets:image.assets,
    nextCall:{tool:'theastraydev-local-models__generate-model',arguments:{name:args.name,imageJobId:image.jobId,seed:args.seed??42,quality:profile}},
    instruction:'The 3D model is not generated yet. Immediately make nextCall to finish the authorized request. Do not regenerate this reference or ask the user to copy files. Separate calls preserve Genex\'s native time limit.'};
@@ -151,10 +202,10 @@ async function generateModel(args:Record<string,unknown>,ctx:PluginContext,host:
  const delivered=await retrieve(ctx,reference.id),image=delivered.record.files.find((file:string)=>/\.(png|jpe?g|webp)$/i.test(file));
  if(!image)throw Error(`Reference job ${reference.id} has no delivered image. Retrieve it before retrying; do not regenerate it.`);
  try{
-  const result={...await generate('generate-model',{name:args.name,image,seed:args.seed,quality:profile},ctx,host),referenceJobId:reference.id};
+  const result=shapeReady(await generate('generate-model',{name:args.name,image,seed:args.seed,quality:profile},ctx,host),reference.id);
   await ctx.host('jobs.write',{id:result.jobId,value:result});
   return result;
- }catch(error){throw Error(`3D generation did not complete. Reference job ${reference.id} is retained. Retry with imageJobId=${reference.id} and quality=${profile} to reuse it. ${String(error)}`);}
+ }catch(error){throw Error(`3D generation did not complete. Reference job ${reference.id} is retained. Inspect retained jobs before continuing with imageJobId=${reference.id} and quality=${profile}. Never automatically retry a failed stage. ${String(error)}`);}
 }
 
 /** Inject only host identity for deterministic cross-platform workflow fixtures. */

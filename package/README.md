@@ -2,9 +2,9 @@
 
 Generate local game images, textures, sound and music with platform-specific Metal or Vulkan runtimes. Windows/NVIDIA also has an experimental textured Hunyuan3D route. Studio's coding agent calls the assigned model and integrates its project-scoped outputs. Only one GPU generation job runs at a time; its processes exit when finished.
 
-**Development-host prerelease. This package does not install or run on stock Genex 0.1.7, or current unmodified `dev`.** Its 35-minute Hunyuan recipe needs an unreleased native-job timeout extension. The tested local host also exposes retained native outputs in Assets before a build lands or after it is canceled. The catalog submission is a draft, not a ready-to-install listing. See [Compatibility](docs/compatibility.md).
+**Experimental prerelease; catalog submission remains a draft.** All native jobs use the existing five-minute limit. Hunyuan shape and paint are separate jobs and tool calls. A paint failure retains the untextured shape and reports incomplete texturing. Version 0.1.13 removes the previous 35-minute manifest rejection. Released-host inference, clean setup and platform visibility still need validation. See [Compatibility](docs/compatibility.md).
 
-Plugin ID: `theastraydev-local-models`. Publisher: `TheAstrayDev`. Version: `0.1.12`. This is the first catalog submission. Version 0.1.12 adds experimental Metal/Vulkan profiles and explicit setup locations; 0.1.11's asset orchestration remains intact. Existing release artifacts are unchanged. The bare `local-models` ID remains a local prototype. The public ID follows the catalog's GitHub-owner naming rule. Do not enable the public package beside the old prototype: their independent plugin locks would not serialize work with one another. This package does not migrate or remove prototype data.
+Plugin ID: `theastraydev-local-models`. Publisher: `TheAstrayDev`. Version: `0.1.13`. This first catalog submission follows the maintainer decision in [#170](https://github.com/genex-games/genex-desktop/issues/170#issuecomment-6233006335). Version 0.1.12 experimental Metal/Vulkan profiles and 0.1.11 orchestration remain. Existing release artifacts are unchanged. The bare `local-models` ID remains a local prototype. Do not enable both identities together: their independent locks do not serialize work. This package does not migrate or remove prototype data.
 
 ## Platform availability
 
@@ -31,7 +31,7 @@ Unsupported models have no Install button and cannot be selected for new work. E
 | Instrumental music | Stable Audio 3 Small Music Q8, audio.cpp | Stereo WAV |
 | Static 3D | Hunyuan3D 2.0 Turbo, separately provisioned Windows Portable runtime | Textured GLB |
 
-The tested machine has an RTX 4070 12 GB and 32 GB RAM. This release does not implement Linux/macOS, AMD/Intel GPU profiles, rigging, mesh animation, voice, video or a local coding/chat model. Existing model-cache discovery is metadata-only; finding a file does not make an unsupported model assignable. Studio writes game logic, VFX and shaders itself.
+**Hunyuan graphics requirements:** Windows x64 and an NVIDIA GPU with CUDA support, plus the separately prepared Portable runtime. The tested configuration is an RTX 4070 with 12 GB VRAM and 32 GB system RAM. This is a tested configuration, not a verified minimum for every GPU. AMD/Intel GPUs and Apple Silicon cannot use this Hunyuan adapter. Each shape/paint job is forcibly capped at 300 seconds; cold starts and slower devices can exceed that cap. No quality reduction or CPU fallback is automatic. Rigging, animation, voice, video and a local coding/chat model are not implemented. Existing cache discovery is metadata-only. Studio writes game logic, VFX and shaders.
 
 There is no paid Genex generation fallback. Platform publishing, identity, multiplayer and purchases remain official Genex features, not local inference. This plugin does not change Genex's executable, install a desktop update, apply a host patch or publish a game.
 
@@ -40,7 +40,7 @@ There is no paid Genex generation fallback. Platform publishing, identity, multi
 1. Enable the plugin on a compatible development host. Its panel lets the user assign installed compatible models to image, texture, SFX, music and model routes. Disabled routes stay disabled.
 2. Studio reads `theastraydev-local-models__status` and checks retained assets before requesting new work.
 3. An inference call takes a plugin-wide filesystem lease. One fixed host `native.run` recipe launches the worker. The agent cannot supply executable paths, shell commands, arbitrary model IDs or output folders.
-4. Hunyuan shape and paint run as separate processes. Shape exits before paint loads. All model processes exit after their request; no inference server remains resident. Weights stay on disk and reclaimable OS file cache can remain. Full unloading means cold start is not instant.
+4. Hunyuan shape and paint run as separate host jobs and separate tool calls, each capped at five minutes. The shape GLB and prepared reference PNG are retained before paint starts using staged read-only copies. All model processes exit after their request; no inference server remains resident. Weights stay on disk and reclaimable OS file cache can remain. Full unloading means cold start is not instant.
 5. The host retains original output and delivers it into the bound game/worktree. The tool returns exact `files`, `assets[].url` and a job UUID. `assets` lists that game's completed jobs; `retrieve` restores their original bytes without inference and refuses changed destinations or cross-project jobs.
 6. Studio loads the returned URL into the actual gameplay entity. `inspect-use` uses Genex's observation service to report runtime loading and capture the scene. `verify-use` accepts a current successful inspection with the agent's visual note; audio requires advancing audible playback. Delivery alone is not proof of integration.
 
@@ -50,7 +50,9 @@ Cancellation is owned by the host. The lease is held until the call settles, not
 
 `generate-image` accepts an object description, optional size 512 or 768, and `purpose`: `asset` (default), `icon`, `model-reference` or `scene`. Isolated purposes automatically use Qwen's documented native RGBA format. Pixel alpha is checked read-only; one failed transparency check gets one sequential retry with a recorded new seed, then an explicit failure. There is no image-editor pass. `task:"texture"` keeps surface tiles opaque; `purpose:"scene"` permits a complete background.
 
-`generate-model` accepts exactly one of `prompt`, `imageJobId` or a project-relative `image` under `assets/` or `public/`. A prompt first generates a Qwen reference and returns `completed:false`, `state:"reference-ready"` and `nextCall`. The agent follows that continuation in a separate call to finish the mesh. Saved references survive mesh failure. A reference PNG is never reported as a completed 3D asset.
+`generate-model` accepts exactly one of `prompt`, `imageJobId`, `image` or `shapeJobId`. Project images must be under `assets/` or `public/`. A prompt returns `completed:false`, `state:"reference-ready"` and `nextCall`. Following that call creates only the shape and returns `state:"shape-ready"`, the untextured `shape.glb`, the exact prepared `reference.png`, and another `nextCall` containing `shapeJobId`. Follow it to paint the retained shape in a third call. Only successful paint returns `completed:true` and `textured:true`.
+
+If painting fails, times out or is canceled, the result is `state:"paint-incomplete"`, `completed:false`, `textured:false`, with `shapeJobId` and exact `shapeAssets` URLs. The completed shape remains retrievable through `retrieve` and listed by `assets`. Repeated continuations reuse finished jobs and refuse duplicates of running/failed/canceled stages. They never automatically retry, regenerate a shape, lower quality or invoke a paid fallback. Original shape/reference files are staged read-only inputs. The native host owns process-tree termination; the plugin lease remains held until the call settles.
 
 Hunyuan receives an image, not a chat system prompt. Its automatic Qwen reference instructions emphasize a complete three-quarter silhouette, readable construction, correct proportions and diffuse light while preserving the requested style. Genuine transparent references keep their alpha; existing opaque references use local CPU preprocessing. The saved source image is preserved.
 
@@ -71,7 +73,7 @@ Version 0.1.11 rewrites the always-present lead instructions and adds the `asset
 
 ## Setup boundaries
 
-**Do not try this package on stock Genex yet.** On a compatible development host, install the prebuilt `package/` directory using the official plugin workflow, approve its disclosed capabilities, then enable it. No npm installation or build hook runs inside Genex. No Hugging Face account/token is used by these pinned public GGUF download routes. Original model terms still apply.
+On a compatible host, install the prebuilt `package/` directory using the official plugin workflow, approve its disclosed capabilities, then enable it. No npm installation or build hook runs inside Genex. No Hugging Face account/token is used by these pinned public GGUF download routes. Original model terms still apply. All declared jobs fit the stock timeout policy; this prerelease still needs the acceptance checks in Compatibility.
 
 The user-confirmed Install action supports Qwen and Stable Audio. Installing the plugin or assigning a route does not download weights. After confirmation, the plugin downloads and verifies the selected runtime and weights, resumes bounded downloads, checks ZIP/tar paths, stages regular files and preserves different existing files. Python command symlinks are omitted from the macOS archive; the manifest names its real interpreter. The panel and confirmation review show the locations before setup.
 
@@ -115,7 +117,7 @@ npm run test:worker
 
 The Python tests need Pillow, NumPy, SciPy and trimesh, not GPU weights. The TypeScript tests cover assignments, argument validation, sequential execution/cancellation, download integrity, hostile archives, retained-job ownership, continuation and integration evidence. On a nearly full Windows C: drive, point TEMP/TMP at a volume with space; tests do not disable the installer's reserve.
 
-From a compatible Genex checkout run `npm run plugin:doctor -- /path/to/package`. The stock validator currently rejects the 35-minute recipe before activation; that failure is a compatibility blocker, not a passing stock check. `GENEX_SOURCE_DIR=/path/to/compatible-checkout node scripts/check-host.ts` exercises disposable-registry install, a harmless status/assets call, same-session tool availability, skill reads, update preservation and disable/remove. It does not use the normal Genex profile. See [validation](docs/validation.md) for exact evidence and unverified cases.
+From a Genex checkout run `npm run plugin:doctor -- /path/to/package`. Version 0.1.13 passes the stock five-minute declaration check without a budget patch. `GENEX_SOURCE_DIR=/path/to/checkout node scripts/check-host.ts` exercises disposable-registry install, harmless status/assets calls, same-session availability, skill reads, update preservation and disable/remove. It does not use the normal profile. See [validation](docs/validation.md). Future background long jobs are tracked separately in [#184](https://github.com/genex-games/genex-desktop/issues/184).
 
 ## License and attribution
 

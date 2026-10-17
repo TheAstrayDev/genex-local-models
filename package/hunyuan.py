@@ -5,9 +5,7 @@ Only pinned local code and weights are used; no Gradio server or downloads.
 import json
 import os
 from pathlib import Path
-import subprocess
 import sys
-import time
 
 MODEL = "hunyuan3d-2-turbo"
 PROFILES = {
@@ -36,14 +34,18 @@ def preserve_surface_normals(source, textured):
     return textured
 
 
-def command(root, request, output, image):
+def command(root, request, output, image, phase="shape", mesh=None):
     if request.get("model") != MODEL or set(request) not in ({"model", "seed"}, {"model", "seed", "quality"}) or not image:
         raise ValueError("Unsupported Hunyuan3D request")
     if type(request["seed"]) is not int or not 0 <= request["seed"] <= 2147483647:
         raise ValueError("Invalid 3D seed")
     quality = request.get("quality", "balanced")
     quality_profile(quality)
-    return [str(root / "python.exe"), str(Path(__file__).resolve()), "full", str(image), str(output), str(request["seed"]), quality]
+    if phase not in {"shape", "paint"} or (phase == "paint") != bool(mesh):
+        raise ValueError("Expected one fixed shape or paint job")
+    args = [str(root / "python.exe"), str(Path(__file__).resolve()), phase,
+            str(mesh if phase == "paint" else image), str(output), str(request["seed"]), quality]
+    return args + ([str(image)] if phase == "paint" else [])
 
 
 def setup(root, scratch):
@@ -124,7 +126,9 @@ def shape(root, scratch, image_path, output, seed, quality="balanced"):
     from PIL import Image
     with Image.open(image_path) as source:
         image = prepare_reference(root, source)
-    image.save(scratch / "reference.png")
+    # The next job has a fresh scratch directory. Retain the exact prepared image
+    # as a declared output alongside the immutable untextured mesh.
+    image.save(Path(output).with_name("reference.png"))
     print(json.dumps({"referenceAlpha": image.getextrema()[3], "foregroundBounds": image.getbbox()}), flush=True)
     print("Hunyuan3D: loading the shape adapter", flush=True)
     import torch
@@ -153,7 +157,7 @@ def shape(root, scratch, image_path, output, seed, quality="balanced"):
     print(f"Hunyuan3D shape saved: {len(mesh.vertices)} vertices, {len(mesh.faces)} triangles (before simplification: {original_faces})", flush=True)
 
 
-def paint(root, scratch, shape_path, output, seed, quality="balanced"):
+def paint(root, scratch, shape_path, output, seed, quality, image_path):
     profile = quality_profile(quality)
     print("Hunyuan3D: loading the paint adapter; shape process has exited", flush=True)
     import torch
@@ -176,7 +180,8 @@ def paint(root, scratch, shape_path, output, seed, quality="balanced"):
     pipe.render.set_default_texture_resolution(profile["texture"])
     mesh = trimesh.load(shape_path, force="mesh")
     surface = mesh.copy()
-    result = pipe(mesh, Image.open(scratch / "reference.png"))
+    with Image.open(image_path) as reference:
+        result = pipe(mesh, reference.convert("RGBA"))
     preserve_surface_normals(surface, result).export(output, include_normals=True)
     if not getattr(result.visual, "material", None):
         raise RuntimeError("Texture generation returned no material")
@@ -184,10 +189,12 @@ def paint(root, scratch, shape_path, output, seed, quality="balanced"):
 
 
 def main():
-    if len(sys.argv) not in (5, 6) or sys.argv[1] not in {"full", "shape", "paint"}:
+    if len(sys.argv) not in (6, 7) or sys.argv[1] not in {"shape", "paint"}:
         raise ValueError("Expected a fixed generation phase, input, output and seed")
     phase, image, output, seed = sys.argv[1:5]
-    quality = sys.argv[5] if len(sys.argv) == 6 else "balanced"
+    quality = sys.argv[5]
+    if len(sys.argv) != (7 if phase == "paint" else 6):
+        raise ValueError("Paint requires its retained reference image; shape has only one input")
     quality_profile(quality)
     if not seed.isdecimal() or not 0 <= int(seed) <= 2147483647:
         raise ValueError("Invalid seed")
@@ -195,29 +202,10 @@ def main():
     scratch = Path(os.environ.get("TMPDIR", os.environ.get("TEMP", str(Path(output).parent)))) / "hunyuan"
     scratch.mkdir(exist_ok=True)
     setup(root, scratch)
-    if phase == "full":
-        started = time.monotonic()
-        mesh = scratch / "shape.glb"
-        timings = {}
-        for stage, source, target in [("shape", image, mesh), ("paint", mesh, output)]:
-            phase_started = time.monotonic()
-            phase_log = scratch / (stage + ".log")
-            # Explicit handles are required for nested Python children in Windows LPAC.
-            with phase_log.open("wb", buffering=0) as log:
-                result = subprocess.run([sys.executable, str(Path(__file__).resolve()), stage, str(source), str(target), seed, quality], shell=False,
-                                        stdout=log, stderr=subprocess.STDOUT,
-                                        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
-            with phase_log.open("rb") as log:
-                log.seek(max(0, phase_log.stat().st_size - 24000))
-                print(log.read().decode("utf-8", errors="replace"), flush=True)
-            if result.returncode:
-                raise RuntimeError(f"Hunyuan3D {stage} failed ({result.returncode}); no untextured replacement was delivered")
-            timings[stage] = round(time.monotonic()-phase_started, 2)
-        print(json.dumps({"quality": quality, "profile": quality_profile(quality), "phases": ["shape", "paint"], "phaseSeconds": timings, "seconds": round(time.monotonic()-started, 2), "phaseMemoryReleased": True}), flush=True)
-    elif phase == "shape":
+    if phase == "shape":
         shape(root, scratch, image, output, int(seed), quality)
     else:
-        paint(root, scratch, image, output, int(seed), quality)
+        paint(root, scratch, image, output, int(seed), quality, sys.argv[6])
 
 
 if __name__ == "__main__":

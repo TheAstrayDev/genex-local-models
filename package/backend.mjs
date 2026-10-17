@@ -1378,7 +1378,7 @@ var require_yauzl = __commonJS({
 import { mkdir as mkdir3, readFile as readFile2, writeFile as writeFile2, rename as rename2, lstat as lstat2, readdir as readdir2, realpath } from "node:fs/promises";
 import os4 from "node:os";
 import path4 from "node:path";
-import { randomUUID as randomUUID3 } from "node:crypto";
+import { randomUUID as randomUUID3, createHash as createHash2 } from "node:crypto";
 
 // src/catalog.ts
 var routes = ["image", "texture", "sfx", "music", "model"];
@@ -4600,7 +4600,7 @@ function compatibility(model, host = currentHost()) {
   if (model === "hunyuan3d-2-turbo") return {
     supported: windows,
     canInstall: false,
-    requirement: "Windows x64 + NVIDIA CUDA. Separate verified Hunyuan Portable shape/texture setup; no Mac/AMD adapter in this release."
+    requirement: "Windows x64 + NVIDIA CUDA. RTX 4070 12 GB VRAM / 32 GB RAM tested; five-minute cap per shape/paint job, slower GPUs may time out. Separate verified Hunyuan Portable shape/texture setup; no Mac/AMD adapter in this release."
   };
   const image = model === "qwen-image-2.1-turbo";
   const supported = windows || apple && (image ? major >= 25 : major > 22 || major === 22 && minor >= 4);
@@ -5158,7 +5158,7 @@ function requestFor(name, args) {
   if (typeof duration !== "number" || !Number.isFinite(duration) || duration < 1 || duration > 120) throw Error("Duration must be 1 to 120 seconds.");
   return { route, request: { prompt: args.prompt, seed: Number(seed), duration }, inputs: {} };
 }
-async function generate(name, args, ctx, host) {
+async function generate(name, args, ctx, host, shape) {
   const request = requestFor(name, args), root = await storage(ctx);
   const selection = await assignments(root), selected = selection[request.route];
   if (!selected) throw Error(`No local model is assigned to ${request.route}. Choose one in Plugins \u2192 Local Models.`);
@@ -5168,16 +5168,41 @@ async function generate(name, args, ctx, host) {
     activeModel = selected;
     try {
       const started = Date.now();
+      const recipe = request.route === "model" ? shape ? "model-paint" : "model-shape" : request.route === "music" || request.route === "sfx" ? "audio" : "image";
+      if (shape) request.inputs.shape = shape;
+      if (request.route === "model") {
+        const fingerprints = Object.fromEntries(await Promise.all(Object.entries(request.inputs).map(async ([key, file]) => {
+          if (!ctx.directory || !await regular(ctx.directory, file)) throw Error("Model input must be a regular file inside this project.");
+          const target = path4.join(ctx.directory, file);
+          if ((await lstat2(target)).size > 104857600) throw Error("Model input exceeds 100 MB.");
+          return [key, createHash2("sha256").update(await readFile2(target)).digest("hex")];
+        })));
+        const previous = (await ctx.host("native.jobs")).filter((job2) => job2.project === ctx.project && job2.recipe === recipe && Object.entries(request.inputs).every(([key, file]) => job2.inputs?.[key]?.file === file && job2.inputs[key].sha256 === fingerprints[key])).reverse().find((job2) => {
+          if (job2.state !== "completed") return true;
+          const line2 = job2.stdout?.split("\n").findLast((line3) => line3.startsWith(MODEL_RESULT));
+          if (!line2) return true;
+          const receipt2 = JSON.parse(line2.slice(MODEL_RESULT.length));
+          return receipt2.seed === request.request.seed && receipt2.quality === request.request.quality;
+        });
+        if (previous) {
+          if (previous.state !== "completed") throw Error(`Existing ${recipe} job ${previous.id} is ${previous.state}: ${previous.reason ?? ""}. Inspect or retrieve this exact job; no duplicate was started.`);
+          const restored = await retrieve(ctx, previous.id);
+          const line2 = previous.stdout?.split("\n").findLast((line3) => line3.startsWith(MODEL_RESULT));
+          if (!line2) throw Error(`Retained job ${previous.id} has no verified receipt. No duplicate was started.`);
+          const receipt2 = JSON.parse(line2.slice(MODEL_RESULT.length)), files2 = restored.record.files;
+          return { ...restored.record, jobId: previous.id, files: files2, assets: assetEntries(files2), worker: receipt2, reused: true };
+        }
+      }
       const encoded = Buffer.from(JSON.stringify({ ...request.request, model: selected })).toString("base64");
       if (encoded.length > 12288) throw Error("Encoded generation request exceeds the native API limit.");
       const values = Object.fromEntries(Array.from({ length: 12 }, (_2, index) => [`r${index}`, encoded.slice(index * 1024, (index + 1) * 1024) || "."]));
-      const job = await ctx.host("native.run", { job: request.route === "model" ? "model" : request.route === "music" || request.route === "sfx" ? "audio" : "image", inputs: request.inputs, values });
-      if (job.state !== "completed") throw Error(`Local generation ${job.state}: ${job.reason ?? ""} ${job.stdout?.slice(-1800) ?? ""} ${job.stderr?.slice(-1200) ?? ""}. The worker has stopped; no paid fallback was used.`);
+      const job = await ctx.host("native.run", { job: recipe, inputs: request.inputs, values });
+      if (job.state !== "completed") throw Error(`Local generation ${job.state} (job ${job.id}): ${job.reason ?? ""} ${job.stdout?.slice(-1800) ?? ""} ${job.stderr?.slice(-1200) ?? ""}. Inspect this exact job before any retry; no paid fallback was used.`);
       const line = job.stdout?.split("\n").findLast((line2) => line2.startsWith(MODEL_RESULT));
       if (!line) throw Error(`Job ${job.id} produced no verified worker receipt. Inspect this job before retrying.`);
       const receipt = JSON.parse(line.slice(MODEL_RESULT.length));
       const files = await ctx.host("assets.deliver", { output: job.output, jobId: job.id });
-      const result = { jobId: job.id, name: args.name, model: selected, task: request.route, files, assets: assetEntries(files), seconds: (Date.now() - started) / 1e3, worker: receipt, sleep: "process exited; model weights released", use: { stage: "unconfirmed" }, integration: integrationFor(job.id, files) };
+      const result = { jobId: job.id, name: args.name, model: selected, task: request.route, files, assets: assetEntries(files), seconds: (Date.now() - started) / 1e3, worker: receipt, sleep: "process exited; model weights released", use: { stage: "unconfirmed" }, integration: integrationFor(job.id, files), ...request.route === "model" ? { stage: shape ? "paint" : "shape", textured: !!shape } : {} };
       await ctx.host("jobs.write", { id: job.id, value: result });
       let recent = [];
       try {
@@ -5195,11 +5220,48 @@ async function generate(name, args, ctx, host) {
   });
 }
 async function generateModel(args, ctx, host) {
-  const allowed = ["name", "image", "imageJobId", "prompt", "seed", "quality"];
+  const allowed = ["name", "image", "imageJobId", "shapeJobId", "prompt", "seed", "quality"];
   if (Object.keys(args).some((key) => !allowed.includes(key))) throw Error("Unknown generation argument.");
-  const choices = ["image", "imageJobId", "prompt"].filter((key) => args[key] !== void 0);
-  if (choices.length !== 1) throw Error("Choose exactly one of image, imageJobId or prompt.");
-  if (choices[0] === "image") return generate("generate-model", args, ctx, host);
+  const choices = ["image", "imageJobId", "shapeJobId", "prompt"].filter((key) => args[key] !== void 0);
+  if (choices.length !== 1) throw Error("Choose exactly one of image, imageJobId, shapeJobId or prompt.");
+  if (choices[0] === "shapeJobId") {
+    const shape = await nativeResult(ctx, args.shapeJobId);
+    if (shape.state !== "completed" || shape.recipe !== "model-shape") throw Error("Use a completed model-shape job from this project.");
+    const line = shape.stdout?.split("\n").findLast((line2) => line2.startsWith(MODEL_RESULT));
+    if (!line) throw Error("Shape job has no verified worker receipt. Retrieve it without regenerating.");
+    const receipt = JSON.parse(line.slice(MODEL_RESULT.length));
+    if (args.seed !== void 0 && args.seed !== receipt.seed || args.quality !== void 0 && args.quality !== receipt.quality) throw Error("Painting must preserve the shape job seed and quality.");
+    const delivered2 = await retrieve(ctx, shape.id), files = delivered2.record.files;
+    const mesh = files.find((file) => file.endsWith("/shape.glb")), image2 = files.find((file) => file.endsWith("/reference.png"));
+    if (!mesh || !image2) throw Error(`Shape job ${shape.id} is missing its mesh or prepared reference. No generation was started.`);
+    requestFor("generate-model", { name: args.name, image: image2, seed: receipt.seed, quality: receipt.quality });
+    const retained = { shapeJobId: shape.id, shapeAssets: assetEntries(files), textured: false };
+    try {
+      const result = await generate("generate-model", { name: args.name, image: image2, seed: receipt.seed, quality: receipt.quality }, ctx, host, mesh);
+      const completed = { ...result, shapeJobId: shape.id, completed: true, textured: true, state: "completed" };
+      await ctx.host("jobs.write", { id: result.jobId, value: completed });
+      return completed;
+    } catch (error) {
+      return {
+        ...retained,
+        completed: false,
+        state: "paint-incomplete",
+        error: String(error),
+        instruction: "Painting did not finish. The completed untextured shape and prepared reference are retained at shapeAssets. Do not report a textured model, regenerate the shape, retry automatically or use a paid fallback. Retrieve the exact shapeJobId to use the saved shape."
+      };
+    }
+  }
+  const shapeReady = (result, referenceJobId2) => ({
+    ...result,
+    referenceJobId: referenceJobId2,
+    shapeJobId: result.jobId,
+    state: "shape-ready",
+    completed: false,
+    textured: false,
+    nextCall: { tool: "theastraydev-local-models__generate-model", arguments: { name: args.name, shapeJobId: result.jobId } },
+    instruction: "The untextured shape and prepared reference are saved. Immediately follow nextCall to paint this exact shape in a separate five-minute job. If painting fails, keep this shape; do not regenerate it."
+  });
+  if (choices[0] === "image") return shapeReady(await generate("generate-model", args, ctx, host));
   const selection = await state(ctx, host), selected = selection.assignments.model;
   const model = selection.models.find((model2) => model2.id === selected);
   if (!model?.ready) throw Error(`No ready local model is assigned to model. ${model?.reason ?? "Choose Hunyuan3D in Plugins \u2192 Local Models."}`);
@@ -5221,11 +5283,11 @@ async function generateModel(args, ctx, host) {
   const delivered = await retrieve(ctx, reference.id), image = delivered.record.files.find((file) => /\.(png|jpe?g|webp)$/i.test(file));
   if (!image) throw Error(`Reference job ${reference.id} has no delivered image. Retrieve it before retrying; do not regenerate it.`);
   try {
-    const result = { ...await generate("generate-model", { name: args.name, image, seed: args.seed, quality: profile }, ctx, host), referenceJobId: reference.id };
+    const result = shapeReady(await generate("generate-model", { name: args.name, image, seed: args.seed, quality: profile }, ctx, host), reference.id);
     await ctx.host("jobs.write", { id: result.jobId, value: result });
     return result;
   } catch (error) {
-    throw Error(`3D generation did not complete. Reference job ${reference.id} is retained. Retry with imageJobId=${reference.id} and quality=${profile} to reuse it. ${String(error)}`);
+    throw Error(`3D generation did not complete. Reference job ${reference.id} is retained. Inspect retained jobs before continuing with imageJobId=${reference.id} and quality=${profile}. Never automatically retry a failed stage. ${String(error)}`);
   }
 }
 var createPlugin = (host) => ({

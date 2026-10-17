@@ -52,7 +52,7 @@ export interface PluginNativeJob {
   inputs: string[];
   values: Record<string, { pattern: string; maxLength: number }>;
   outputs: string[];
-  /** Integer milliseconds, 1000–2100000 (local 35-minute host update). Expiry terminates the local process. */
+  /** Integer milliseconds, 1000–300000. Expiry terminates the local process. */
   timeoutMs: number;
   /** Retained stdout/stderr tail per stream, 1–256000 bytes. This is not the asset size. */
   maxOutputBytes: number;
