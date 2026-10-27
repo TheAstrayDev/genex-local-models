@@ -117,7 +117,9 @@ def request_value(encoded):
 
 
 def image_command(root, request, output):
-    if request.get("model") != "qwen-image-2.1-turbo" or set(request) not in ({"model", "prompt", "seed", "size"}, {"model", "prompt", "seed", "size", "purpose"}):
+    diffusion_files = {"qwen-image-2.1-turbo": "diffusion.gguf", "qwen-image-2.1-turbo-q8": "diffusion-q8.gguf"}
+    model = request.get("model")
+    if not isinstance(model, str) or model not in diffusion_files or set(request) not in ({"model", "prompt", "seed", "size"}, {"model", "prompt", "seed", "size", "purpose"}):
         raise ValueError("Unsupported image profile")
     if request["size"] not in (512, 768):
         raise ValueError("Unsupported image size")
@@ -128,8 +130,8 @@ def image_command(root, request, output):
         raise ValueError("Unsupported image backend")
     if not binary.is_relative_to(root.resolve()) or binary.name != ("sd-cli" if backend == "metal" else "sd-cli.exe"):
         raise ValueError("Invalid reviewed runtime")
-    models = root / "models" / request["model"]
-    return [str(binary), "--diffusion-model", str(models / "diffusion.gguf"),
+    models = root / "models/qwen-image-2.1-turbo"
+    return [str(binary), "--diffusion-model", str(models / diffusion_files[model]),
             "--llm", str(models / "text-encoder.gguf"), "--vae", str(models / "vae.safetensors"),
             "-p", image_prompt(request), "-o", str(output), "-W", str(request["size"]), "-H", str(request["size"]),
             "--seed", str(request["seed"]), "--steps", "8", "--cfg-scale", "1.0", "--sigmas", "qwen-image-2.1-turbo",

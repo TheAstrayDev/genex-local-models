@@ -1,10 +1,10 @@
 {
   "apiVersion": 3,
   "id": "theastraydev-local-models",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "name": "Local Models",
   "publisher": "TheAstrayDev",
-  "description": "Experimental local images/audio: Windows x64 Vulkan and Apple Silicon Metal. Hunyuan3D: Windows x64 NVIDIA CUDA, 12 GB VRAM / 32 GB RAM tested, separate setup; shape and paint jobs capped at five minutes each. Slower devices may time out.",
+  "description": "Choose local models for images, textures, sound, music and 3D. Qwen Turbo Q4/Q8, Stable Audio and Hunyuan3D Turbo/Mini. Experimental platform profiles; 3D needs separate Windows CUDA setup. Each native job is capped at five minutes. New Q8/Mini inference is not yet verified.",
   "icon": "icon.svg",
   "backend": "backend.mjs",
   "capabilities": [
@@ -310,7 +310,7 @@
     {
       "name": "install",
       "label": "Install model",
-      "confirmation": "Download the selected public model and its verified runtime (up to 11 GB). Its original model license applies. No account or token is sent."
+      "confirmation": "Download the selected public model and its verified runtime? The review shows the size and folders. Original model licenses apply. No account or token is sent."
     },
     {
       "name": "cancel-install",
@@ -319,6 +319,10 @@
     {
       "name": "restore-assets",
       "label": "Restore generated assets to this game"
+    },
+    {
+      "name": "activity",
+      "label": "Generation activity"
     }
   ],
   "nativeRuntimes": [

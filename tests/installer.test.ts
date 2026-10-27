@@ -4,9 +4,35 @@ import {mkdtemp,mkdir,writeFile,readFile,access} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
-import {downloadAsset,child,startInstallation,extractZip,extractTar} from '../src/installer.ts';
+import {downloadAsset,child,startInstallation,extractZip,extractTar,installedWeight} from '../src/installer.ts';
 const data=Buffer.from('verified test model data');
 const asset={name:'test.gguf',folder:'models/test',size:data.length,sha256:createHash('sha256').update(data).digest('hex'),url:'https://example.invalid/pinned-model'};
+
+test('installed companions can be reused without duplicating their download cache',async()=>{
+ const root=await mkdtemp(path.join(tmpdir(),'glm-companion-'));
+ const folder='qwen-image-2.1-turbo';
+ await mkdir(path.join(root,'models',folder),{recursive:true});
+ const companion={...asset,name:'text-encoder.gguf'};
+ const file=path.join(root,'models',folder,companion.name);
+ await writeFile(file,data);
+ assert.equal(await installedWeight(root,folder,companion,new AbortController().signal),file);
+ assert.equal(await installedWeight(root,folder,{...companion,name:'vae.safetensors'},new AbortController().signal),undefined);
+ await writeFile(file,Buffer.alloc(data.length));
+ await assert.rejects(installedWeight(root,folder,companion,new AbortController().signal),/different file preserved/);
+ assert.deepEqual(await readFile(file),Buffer.alloc(data.length));
+});
+
+test('reuse refuses linked companion files before reading them',async()=>{
+ const {symlink}=await import('node:fs/promises');
+ const root=await mkdtemp(path.join(tmpdir(),'glm-companion-link-'));
+ const folder='qwen-image-2.1-turbo';
+ await mkdir(path.join(root,'models',folder),{recursive:true});
+ const external=path.join(root,'external.gguf');
+ await writeFile(external,data);
+ await symlink(external,path.join(root,'models',folder,asset.name),'file');
+ await assert.rejects(installedWeight(root,folder,asset,new AbortController().signal),/link or non-file/);
+ assert.deepEqual(await readFile(external),data);
+});
 test('download resumes a partial, verifies it, and reuses verified bytes without a request',async()=>{
  const root=await mkdtemp(path.join(tmpdir(),'glm-download-'));await mkdir(path.join(root,asset.folder),{recursive:true});
  await writeFile(path.join(root,asset.folder,asset.name+'.part'),data.subarray(0,6));let calls=0;

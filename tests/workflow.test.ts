@@ -43,7 +43,7 @@ async function fixture(t:any,host={platform:'win32',arch:'x64',release:'10.0.261
    const files=args.job==='image'?['image.png']:args.job==='model-shape'?['shape.glb','reference.png']:['model.glb'];
    const {readFile}=await import('node:fs/promises');
    const inputs=Object.fromEntries(await Promise.all(Object.entries(args.inputs).map(async([key,file])=>[key,{file,sha256:createHash('sha256').update(await readFile(path.join(root,file as string))).digest('hex')}])));
-   const job={id,project:'racer',state:'completed',recipe:args.job,output:path.join(root,'output'),inputs,files,stdout:'GENEX_LOCAL_RESULT '+JSON.stringify({file:files[0],seed:request.seed,quality:request.quality})};
+   const job={id,project:'racer',state:'completed',recipe:args.job,output:path.join(root,'output'),inputs,files,stdout:'GENEX_LOCAL_RESULT '+JSON.stringify({file:files[0],model:request.model,seed:request.seed,quality:request.quality})};
    jobs.set(id,job);return job;
   }
   throw Error('Unexpected host call '+method);
@@ -55,6 +55,57 @@ async function fixture(t:any,host={platform:'win32',arch:'x64',release:'10.0.261
 test('Hunyuan3D accepts exact delivered image paths without a public-folder copy',()=>{
  assert.equal(requestFor('generate-model',{name:'car',image:`assets/theastraydev-local-models/${imageId}/image.png`}).inputs.image,`assets/theastraydev-local-models/${imageId}/image.png`);
  for(const image of ['../secret.png','assets/../../secret.png','assets/.secret/x.png','C:/x.png','https://example.com/x.png'])assert.throws(()=>requestFor('generate-model',{name:'car',image}));
+});
+
+test('status probes each runtime once and overlaps independent discovery',async t=>{
+ const f=await fixture(t),host=f.ctx.host;
+ const {setImmediate}=await import('node:timers/promises');
+ let active=0,peak=0;
+ f.ctx.host=(async(method:string,args:any)=>{
+  if(method!=='runtime.detect')return host(method,args);
+  active++;peak=Math.max(peak,active);await setImmediate();active--;
+  return host(method,args);
+ }) as PluginContext['host'];
+ await f.plugin.action!('status',{},f.ctx);
+ assert.deepEqual(f.calls.filter(c=>c.method==='runtime.detect').map(c=>c.args.runtime).sort(),['audio','hunyuan','qwen']);
+ assert.equal(peak,3);
+});
+
+test('activity polling does not probe runtimes or read model files',async t=>{
+ const f=await fixture(t);
+ const activity:any=await f.plugin.action!('activity',{},f.ctx);
+ assert.equal(activity.execution.active,false);
+ assert.equal(activity.installation.active,false);
+ assert.deepEqual(f.calls,[]);
+});
+
+test('new incompatible assignments are refused without changing existing choices',async t=>{
+ const f=await fixture(t,{platform:'darwin',arch:'arm64',release:'25.0.0'});
+ const before:any=await f.plugin.action!('status',{},f.ctx);
+ await assert.rejects(f.plugin.action!('assign',{...before.assignments,model:'hunyuan3d-2-mini-turbo'},f.ctx),/not available/);
+ const after:any=await f.plugin.action!('status',{},f.ctx);
+ assert.deepEqual(after.assignments,before.assignments);
+ await f.plugin.action!('assign',{...before.assignments,texture:null},f.ctx);
+ assert.equal((await f.plugin.action!('status',{},f.ctx) as any).assignments.texture,null);
+});
+
+test('a staged model keeps its chosen adapter when new-request defaults change',async t=>{
+ const f=await fixture(t);
+ const reference:any=await f.plugin.tool!('generate-model',{name:'car',prompt:'A compact coupe'},f.ctx);
+ await f.plugin.action!('assign',{image:'qwen-image-2.1-turbo',texture:null,sfx:null,music:null,model:'hunyuan3d-2-mini-turbo'},f.ctx);
+ const shape:any=await f.plugin.tool!('generate-model',reference.nextCall.arguments,f.ctx);
+ const painted:any=await f.plugin.tool!('generate-model',shape.nextCall.arguments,f.ctx);
+ assert.equal(shape.model,'hunyuan3d-2-turbo');assert.equal(painted.model,'hunyuan3d-2-turbo');
+});
+
+test('identical inputs on different 3D models are different requests, never reused as each other',async t=>{
+ const f=await fixture(t);
+ const turbo:any=await f.plugin.tool!('generate-model',{name:'car',imageJobId:imageId},f.ctx);
+ await f.plugin.action!('assign',{image:'qwen-image-2.1-turbo',texture:null,sfx:null,music:null,model:'hunyuan3d-2-mini-turbo'},f.ctx);
+ const mini:any=await f.plugin.tool!('generate-model',{name:'car',imageJobId:imageId},f.ctx);
+ assert.equal(turbo.model,'hunyuan3d-2-turbo');assert.equal(mini.model,'hunyuan3d-2-mini-turbo');
+ assert.notEqual(mini.reused,true);
+ assert.equal(f.calls.filter(c=>c.method==='native.run').length,2);
 });
 
 test('Mac hides incompatible 3D setup and rejects the route before an expensive reference',async t=>{

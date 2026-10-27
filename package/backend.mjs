@@ -1385,7 +1385,8 @@ var routes = ["image", "texture", "sfx", "music", "model"];
 var catalog = [
   {
     id: "qwen-image-2.1-turbo",
-    name: "Qwen Image 2.1 Turbo",
+    family: "qwen",
+    name: "Qwen Image 2.1 Turbo \xB7 Q4",
     detail: "Q4_K_M \xB7 8 steps \xB7 512\u2013768 px",
     routes: ["image", "texture"],
     bytes: 9902859608,
@@ -1396,7 +1397,21 @@ var catalog = [
     gate: false
   },
   {
+    id: "qwen-image-2.1-turbo-q8",
+    family: "qwen",
+    name: "Qwen Image 2.1 Turbo \xB7 Q8",
+    detail: "Q8_0 \xB7 heavier memory use \xB7 shared encoder and VAE \xB7 512\u2013768 px",
+    routes: ["image", "texture"],
+    bytes: 13344154968,
+    license: "Qwen Research",
+    url: "https://huggingface.co/unsloth/Qwen-Image-2.1-Turbo-GGUF",
+    experimental: true,
+    files: ["models/qwen-image-2.1-turbo/diffusion-q8.gguf", "models/qwen-image-2.1-turbo/text-encoder.gguf", "models/qwen-image-2.1-turbo/vae.safetensors"],
+    gate: false
+  },
+  {
     id: "stable-audio-3-small-sfx",
+    family: "audio",
     name: "Stable Audio 3 Small SFX",
     detail: "Q8 \xB7 audio.cpp Metal / Vulkan / existing CUDA \xB7 up to 120 seconds",
     routes: ["sfx"],
@@ -1409,6 +1424,7 @@ var catalog = [
   },
   {
     id: "stable-audio-3-small-music",
+    family: "audio",
     name: "Stable Audio 3 Small Music",
     detail: "Q8 \xB7 audio.cpp Metal / Vulkan / existing CUDA \xB7 up to 120 seconds",
     routes: ["music"],
@@ -1421,6 +1437,7 @@ var catalog = [
   },
   {
     id: "hunyuan3d-2-turbo",
+    family: "hunyuan",
     name: "Hunyuan3D 2.0 Turbo",
     detail: "Balanced default \xB7 experimental high-density 200k / 2K profile \xB7 sequential shape and paint",
     routes: ["model"],
@@ -1429,6 +1446,19 @@ var catalog = [
     url: "https://github.com/YanWenKun/Hunyuan3D-2-WinPortable",
     experimental: true,
     files: ["Hunyuan3D-2/hy3dgen/shapegen/pipelines.py", "models/tencent/Hunyuan3D-2/hunyuan3d-dit-v2-0-turbo/model.fp16.safetensors", "models/tencent/Hunyuan3D-2/hunyuan3d-paint-v2-0-turbo/unet/genex-original-fp16.safetensors", "hunyuan3d-2-turbo.ready.json"],
+    gate: false
+  },
+  {
+    id: "hunyuan3d-2-mini-turbo",
+    family: "hunyuan",
+    name: "Hunyuan3D 2mini Turbo",
+    detail: "Separate mini shape checkpoint \xB7 shared Turbo painter \xB7 manual setup \xB7 live inference unverified",
+    routes: ["model"],
+    bytes: 0,
+    license: "Tencent Hunyuan3D Community + component terms",
+    url: "https://huggingface.co/tencent/Hunyuan3D-2mini/tree/f90a0f7df7d5e6f71109cf333f6a95a0ae3194a6/hunyuan3d-dit-v2-mini-turbo",
+    experimental: true,
+    files: ["Hunyuan3D-2/hy3dgen/shapegen/pipelines.py", "models/tencent/Hunyuan3D-2mini/hunyuan3d-dit-v2-mini-turbo/config.yaml", "models/tencent/Hunyuan3D-2mini/hunyuan3d-dit-v2-mini-turbo/model.fp16.safetensors", "models/tencent/Hunyuan3D-2/hunyuan3d-paint-v2-0-turbo/unet/genex-original-fp16.safetensors", "hunyuan3d-2-mini-turbo.ready.json"],
     gate: false
   }
 ];
@@ -4592,18 +4622,33 @@ var platform_assets_default = {
 };
 
 // src/platform.ts
+var QWEN_Q8 = {
+  name: "diffusion-q8.gguf",
+  folder: "runtime/models/qwen-image-2.1-turbo",
+  size: 7640860480,
+  sha256: "399d2ddc3636f36456e2f5bfa57187da4e38721bc046430317f42a9eab5b1712",
+  url: "https://huggingface.co/unsloth/Qwen-Image-2.1-Turbo-GGUF/resolve/5d1f9f759ea877ae556cda88dbec958b62ad3809/qwen-image-2.1-turbo-Q8_0.gguf"
+};
 var currentHost = () => ({ platform: process.platform, arch: process.arch, release: os2.release() });
 function compatibility(model, host = currentHost()) {
+  const entry = catalog.find((entry2) => entry2.id === model);
+  if (!entry) return { supported: false, canInstall: false, requirement: "Unknown reviewed model." };
   const windows = host.platform === "win32" && host.arch === "x64";
   const apple = host.platform === "darwin" && host.arch === "arm64";
   const [major = 0, minor = 0] = host.release.split(".").map(Number);
-  if (model === "hunyuan3d-2-turbo") return {
+  if (model === "hunyuan3d-2-mini-turbo") return {
+    supported: windows,
+    canInstall: false,
+    requirement: "Experimental Windows x64 NVIDIA CUDA adapter; live mini inference, memory fit and five-minute fit are unverified. Separate mini shape checkpoint and verified Turbo painter setup are required. No Mac/AMD adapter."
+  };
+  if (entry.family === "hunyuan") return {
     supported: windows,
     canInstall: false,
     requirement: "Windows x64 + NVIDIA CUDA. RTX 4070 12 GB VRAM / 32 GB RAM tested; five-minute cap per shape/paint job, slower GPUs may time out. Separate verified Hunyuan Portable shape/texture setup; no Mac/AMD adapter in this release."
   };
-  const image = model === "qwen-image-2.1-turbo";
+  const image = entry.family === "qwen";
   const supported = windows || apple && (image ? major >= 25 : major > 22 || major === 22 && minor >= 4);
+  if (model === "qwen-image-2.1-turbo-q8") return { supported, canInstall: supported, requirement: "Windows x64 with a Vulkan-capable GPU and current driver, or Apple Silicon with macOS 26+. About 13.3 GB weights; uses more memory than Q4. Shared text encoder and VAE. Live Q8 inference and five-minute fit are unverified." };
   return { supported, canInstall: supported, requirement: image ? "Windows x64 with a Vulkan-capable GPU and current driver (AMD/NVIDIA), or Apple Silicon with macOS 26+. About 10 GB weights; plan for 12 GB VRAM or 24 GB unified memory. Inference speed is hardware-dependent." : "Windows x64 with a Vulkan-capable GPU and current driver (AMD/NVIDIA), or Apple Silicon with macOS 13.3+. About 1.7 GB per audio model. Metal/Vulkan generation still needs hardware validation." };
 }
 function runtimeDirectory(binary) {
@@ -4612,18 +4657,21 @@ function runtimeDirectory(binary) {
   return marker >= 0 ? portable.slice(0, marker) + ".app/Contents" : path2.dirname(binary);
 }
 function installationPlan(model, host = currentHost(), legacyCuda = false) {
-  if (!["qwen-image-2.1-turbo", "stable-audio-3-small-music", "stable-audio-3-small-sfx", "hunyuan3d-2-turbo"].includes(model)) throw Error("Unknown reviewed model.");
+  const entry = catalog.find((entry2) => entry2.id === model);
+  if (!entry) throw Error("Unknown reviewed model.");
   const support = compatibility(model, host);
   if (!support.supported) throw Error("Model is not available on this computer. " + support.requirement);
   if (!support.canInstall) throw Error("Hunyuan3D uses a separately provisioned Windows Portable runtime. Complete its verified CUDA texture setup before assigning it; generation never installs dependencies.");
-  const apple = host.platform === "darwin", family = model === "qwen-image-2.1-turbo" ? "qwen" : "audio";
+  const apple = host.platform === "darwin", family = entry.family === "qwen" ? "qwen" : "audio";
+  const modelDirectory = family === "qwen" ? "qwen-image-2.1-turbo" : model;
   const backend = apple ? "metal" : legacyCuda ? "cuda" : "vulkan";
-  const weights = (family === "qwen" ? qwen_assets_default : audio_assets_default).filter((a) => a.folder !== "downloads" && (family === "qwen" || a.folder.endsWith(model)));
+  const weights = (family === "qwen" ? qwen_assets_default : audio_assets_default).filter((a) => a.folder !== "downloads" && (family === "qwen" || a.folder.endsWith(model))).map((asset) => model === "qwen-image-2.1-turbo-q8" && asset.name === "diffusion.gguf" ? QWEN_Q8 : asset);
   const binaries = backend === "cuda" ? (family === "qwen" ? qwen_assets_default : audio_assets_default).filter((a) => a.folder === "downloads") : [platform_assets_default[`${family === "qwen" ? "sd" : "audio"}-${backend}`]];
   return {
     family,
     backend,
     apple,
+    modelDirectory,
     python: apple ? platform_assets_default["python-macos"] : platform_assets_default["python-windows"],
     assets: [...binaries, ...weights],
     executable: (family === "qwen" ? "sd-cli" : "audiocpp_cli") + (apple ? "" : ".exe")
@@ -4681,6 +4729,25 @@ async function sha(file, signal) {
     hash.update(bytes);
   }
   return hash.digest("hex");
+}
+async function installedWeight(root, modelDirectory, asset, signal) {
+  const target = child(root, path3.join("models", modelDirectory, asset.name));
+  try {
+    let current = path3.resolve(root);
+    const rootInfo = await lstat(current);
+    if (rootInfo.isSymbolicLink() || !rootInfo.isDirectory()) throw Error("Installed weight contains a link or non-file.");
+    const segments = path3.relative(current, target).split(path3.sep);
+    for (const [index, segment] of segments.entries()) {
+      current = path3.join(current, segment);
+      const info = await lstat(current);
+      if (info.isSymbolicLink() || (index === segments.length - 1 ? !info.isFile() : !info.isDirectory())) throw Error("Installed weight contains a link or non-file.");
+    }
+    if ((await lstat(target)).size !== asset.size || await sha(target, signal) !== asset.sha256) throw Error("Existing different file preserved: " + asset.name);
+    return target;
+  } catch (error) {
+    if (error.code === "ENOENT") return void 0;
+    throw error;
+  }
 }
 async function downloadAsset(root, asset, signal, onProgress = () => {
 }, get = fetch) {
@@ -4854,7 +4921,7 @@ function startInstallation(model) {
   return installation();
 }
 async function install(model, signal) {
-  const host = currentHost(), family = model === "qwen-image-2.1-turbo" ? "qwen" : "audio";
+  const host = currentHost(), family = installationPlan(model, host).family;
   const bundle = path3.join(os3.homedir(), "Genex-Local-Models", family + (host.platform === "darwin" ? ".app" : ""));
   const root = host.platform === "darwin" ? path3.join(bundle, "Contents") : bundle;
   let legacyCuda = false;
@@ -4884,10 +4951,12 @@ async function install(model, signal) {
     for (const asset of [python, ...assets]) {
       progress.phase = "downloading and verifying";
       progress.file = asset.name;
-      files.set(asset.name, await downloadAsset(base, asset, signal, (bytes) => {
+      const existing = asset !== python && asset.folder !== "downloads" ? await installedWeight(root, plan.modelDirectory, asset, signal) : void 0;
+      files.set(asset.name, existing ?? await downloadAsset(base, asset, signal, (bytes) => {
         progress.completed = complete + bytes;
       }));
       complete += asset.size;
+      progress.completed = complete;
     }
     await directory(os3.homedir(), path3.relative(os3.homedir(), root));
     const stage = path3.join(base, "setup-" + randomUUID());
@@ -4896,7 +4965,7 @@ async function install(model, signal) {
     const stagedRuntime = await prepareRuntime(plan, files, stage, signal);
     const copies = [];
     for (const file of await regularFiles(stagedRuntime)) copies.push({ source: file, destination: path3.join(root, path3.relative(stagedRuntime, file)) });
-    for (const asset of assets.filter((asset2) => asset2.folder !== "downloads")) copies.push({ source: files.get(asset.name), destination: path3.join(root, "models", model, asset.name) });
+    for (const asset of assets.filter((asset2) => asset2.folder !== "downloads")) copies.push({ source: files.get(asset.name), destination: path3.join(root, "models", plan.modelDirectory, asset.name) });
     let needed = 0;
     for (const file of copies) {
       try {
@@ -4924,7 +4993,7 @@ async function install(model, signal) {
       await rename(partial, file.destination);
     }
     for (const asset of assets.filter((asset2) => asset2.folder !== "downloads")) {
-      const destination = path3.join(root, "models", model, asset.name);
+      const destination = path3.join(root, "models", plan.modelDirectory, asset.name);
       if (await sha(destination, signal) !== asset.sha256) throw Error("Installed model digest differs; not activated.");
     }
     if (family === "qwen") {
@@ -5048,8 +5117,8 @@ async function verifyUse(ctx, args) {
 // src/backend.ts
 var queue = new ModelQueue();
 var activeModel = null;
-var runtimeId = "qwen";
 var MODEL_RESULT = "GENEX_LOCAL_RESULT ";
+var execution = () => ({ policy: "one-model-at-a-time", sleep: "terminate-process", active: queue.active, model: activeModel, pending: queue.pending });
 async function storage(ctx) {
   return ctx.host("storage.root");
 }
@@ -5071,13 +5140,12 @@ async function regular(root, file) {
   }
 }
 async function state(ctx, host) {
-  const root = await storage(ctx), runtime = await ctx.host("runtime.detect", { runtime: runtimeId });
-  const qwen = await ctx.host("runtime.detect", { runtime: "qwen" });
-  const audio = await ctx.host("runtime.detect", { runtime: "audio" });
-  const hunyuan = await ctx.host("runtime.detect", { runtime: "hunyuan" });
+  const root = await storage(ctx);
+  const [qwen, audio, hunyuan] = await Promise.all(["qwen", "audio", "hunyuan"].map((runtime2) => ctx.host("runtime.detect", { runtime: runtime2 })));
+  const runtime = qwen;
   const runtimeRoot = runtime.path ? runtimeDirectory(runtime.path) : null;
   const models = await Promise.all(catalog.map(async (model) => {
-    const selected = model.id === "qwen-image-2.1-turbo" ? qwen : model.id === "hunyuan3d-2-turbo" ? hunyuan : audio;
+    const selected = { qwen, audio, hunyuan }[model.family];
     const modelRoot = selected.path ? runtimeDirectory(selected.path) : null;
     const support = compatibility(model.id, host);
     const required = model.files.map((file) => host.platform === "darwin" ? file.replace("audiocpp_cli.exe", "audiocpp_cli") : file);
@@ -5089,7 +5157,7 @@ async function state(ctx, host) {
       ready,
       runtimeRoot: modelRoot,
       state: !support.supported ? "unsupported" : model.id === activeModel ? "working" : ready ? "sleeping" : model.gate ? "access-required" : "not-installed",
-      reason: !support.supported ? support.requirement : model.id === activeModel ? "One model worker is active. Other models stay asleep." : ready ? "Loads only when assigned work starts." : model.id === "hunyuan3d-2-turbo" ? "The Hunyuan3D Windows Portable runtime needs its verified local texture setup." : "Use Install to download and verify the public weights and runtime. No account or token is needed."
+      reason: !support.supported ? support.requirement : model.id === activeModel ? "One model worker is active. Other models stay asleep." : ready ? "Loads only when assigned work starts." : model.family === "hunyuan" ? "The Hunyuan3D Windows Portable runtime needs its verified local texture setup." : "Use Install to download and verify the public weights and runtime. No account or token is needed."
     };
   }));
   let recent = [];
@@ -5108,7 +5176,7 @@ async function state(ctx, host) {
     modelDirectory: path4.join(os4.homedir(), "Genex-Local-Models"),
     installation: installation(),
     assignments: await assignments(root),
-    execution: { policy: "one-model-at-a-time", sleep: "terminate-process", active: queue.active, model: activeModel, pending: queue.pending },
+    execution: execution(),
     recent
   };
 }
@@ -5158,10 +5226,11 @@ function requestFor(name, args) {
   if (typeof duration !== "number" || !Number.isFinite(duration) || duration < 1 || duration > 120) throw Error("Duration must be 1 to 120 seconds.");
   return { route, request: { prompt: args.prompt, seed: Number(seed), duration }, inputs: {} };
 }
-async function generate(name, args, ctx, host, shape) {
+async function generate(name, args, ctx, host, shape, pinnedModel) {
   const request = requestFor(name, args), root = await storage(ctx);
-  const selection = await assignments(root), selected = selection[request.route];
-  if (!selected) throw Error(`No local model is assigned to ${request.route}. Choose one in Plugins \u2192 Local Models.`);
+  const selection = await assignments(root);
+  if (!selection[request.route]) throw Error(`No local model is assigned to ${request.route}. Choose one in Plugins \u2192 Local Models.`);
+  const selected = pinnedModel ?? selection[request.route];
   const snapshot = await state(ctx, host), model = snapshot.models.find((model2) => model2.id === selected);
   if (!model?.ready) throw Error(`${model?.name ?? selected}: ${model?.reason ?? "not installed"}`);
   return queue.run(root, ctx.signal, async () => {
@@ -5182,7 +5251,7 @@ async function generate(name, args, ctx, host, shape) {
           const line2 = job2.stdout?.split("\n").findLast((line3) => line3.startsWith(MODEL_RESULT));
           if (!line2) return true;
           const receipt2 = JSON.parse(line2.slice(MODEL_RESULT.length));
-          return receipt2.seed === request.request.seed && receipt2.quality === request.request.quality;
+          return (receipt2.model ?? "hunyuan3d-2-turbo") === selected && receipt2.seed === request.request.seed && receipt2.quality === request.request.quality;
         });
         if (previous) {
           if (previous.state !== "completed") throw Error(`Existing ${recipe} job ${previous.id} is ${previous.state}: ${previous.reason ?? ""}. Inspect or retrieve this exact job; no duplicate was started.`);
@@ -5219,6 +5288,11 @@ async function generate(name, args, ctx, host, shape) {
     }
   });
 }
+function modelForStage(value) {
+  const model = catalog.find((model2) => model2.id === value && model2.routes.includes("model"));
+  if (!model) throw Error("The retained job names an unsupported 3D model. No new generation was started.");
+  return model.id;
+}
 async function generateModel(args, ctx, host) {
   const allowed = ["name", "image", "imageJobId", "shapeJobId", "prompt", "seed", "quality"];
   if (Object.keys(args).some((key) => !allowed.includes(key))) throw Error("Unknown generation argument.");
@@ -5232,12 +5306,14 @@ async function generateModel(args, ctx, host) {
     const receipt = JSON.parse(line.slice(MODEL_RESULT.length));
     if (args.seed !== void 0 && args.seed !== receipt.seed || args.quality !== void 0 && args.quality !== receipt.quality) throw Error("Painting must preserve the shape job seed and quality.");
     const delivered2 = await retrieve(ctx, shape.id), files = delivered2.record.files;
+    if (receipt.model && delivered2.record.model && receipt.model !== delivered2.record.model) throw Error("The retained shape model does not match its worker receipt.");
+    const pinnedModel2 = modelForStage(receipt.model ?? delivered2.record.model ?? "hunyuan3d-2-turbo");
     const mesh = files.find((file) => file.endsWith("/shape.glb")), image2 = files.find((file) => file.endsWith("/reference.png"));
     if (!mesh || !image2) throw Error(`Shape job ${shape.id} is missing its mesh or prepared reference. No generation was started.`);
     requestFor("generate-model", { name: args.name, image: image2, seed: receipt.seed, quality: receipt.quality });
     const retained = { shapeJobId: shape.id, shapeAssets: assetEntries(files), textured: false };
     try {
-      const result = await generate("generate-model", { name: args.name, image: image2, seed: receipt.seed, quality: receipt.quality }, ctx, host, mesh);
+      const result = await generate("generate-model", { name: args.name, image: image2, seed: receipt.seed, quality: receipt.quality }, ctx, host, mesh, pinnedModel2);
       const completed = { ...result, shapeJobId: shape.id, completed: true, textured: true, state: "completed" };
       await ctx.host("jobs.write", { id: result.jobId, value: completed });
       return completed;
@@ -5264,11 +5340,12 @@ async function generateModel(args, ctx, host) {
   if (choices[0] === "image") return shapeReady(await generate("generate-model", args, ctx, host));
   const selection = await state(ctx, host), selected = selection.assignments.model;
   const model = selection.models.find((model2) => model2.id === selected);
-  if (!model?.ready) throw Error(`No ready local model is assigned to model. ${model?.reason ?? "Choose Hunyuan3D in Plugins \u2192 Local Models."}`);
   const profile = requestFor("generate-model", { name: args.name, image: "assets/reference.png", seed: args.seed, quality: args.quality }).request.quality;
   let referenceJobId = args.imageJobId;
   if (choices[0] === "prompt") {
+    if (!model?.ready) throw Error(`No ready local model is assigned to model. ${model?.reason ?? "Choose Hunyuan3D in Plugins \u2192 Local Models."}`);
     const image2 = await generate("generate-image", { name: args.name, prompt: args.prompt, task: "image", purpose: "model-reference", size: profile === "high" ? 768 : 512, seed: args.seed }, ctx, host);
+    await ctx.host("jobs.write", { id: image2.jobId, value: { ...image2, modelPipeline: { model: selected, quality: profile } } });
     return {
       state: "reference-ready",
       completed: false,
@@ -5281,9 +5358,10 @@ async function generateModel(args, ctx, host) {
   const reference = await nativeResult(ctx, referenceJobId);
   if (reference.state !== "completed" || reference.recipe !== "image") throw Error("Use a completed image job from this project as the 3D reference.");
   const delivered = await retrieve(ctx, reference.id), image = delivered.record.files.find((file) => /\.(png|jpe?g|webp)$/i.test(file));
+  const pinnedModel = modelForStage(delivered.record.modelPipeline?.model ?? selected);
   if (!image) throw Error(`Reference job ${reference.id} has no delivered image. Retrieve it before retrying; do not regenerate it.`);
   try {
-    const result = shapeReady(await generate("generate-model", { name: args.name, image, seed: args.seed, quality: profile }, ctx, host), reference.id);
+    const result = shapeReady(await generate("generate-model", { name: args.name, image, seed: args.seed, quality: profile }, ctx, host, void 0, pinnedModel), reference.id);
     await ctx.host("jobs.write", { id: result.jobId, value: result });
     return result;
   } catch (error) {
@@ -5301,6 +5379,7 @@ var createPlugin = (host) => ({
   },
   async action(name, args, ctx) {
     if (name === "status") return state(ctx, host);
+    if (name === "activity") return { execution: execution(), installation: installation() };
     if (name === "discover") return discover();
     if (name === "restore-assets") return restoreAssets(ctx);
     if (name === "install") {
@@ -5311,6 +5390,11 @@ var createPlugin = (host) => ({
     if (name === "assign") {
       const value = validateAssignments(args), root = await storage(ctx);
       await mkdir3(root, { recursive: true });
+      const previous = await assignments(root);
+      for (const route of routes) {
+        const id = value[route];
+        if (id && id !== previous[route] && !compatibility(id, host).supported) throw Error(`${id} is not available on this computer. ${compatibility(id, host).requirement}`);
+      }
       const temp = path4.join(root, `assignments-${randomUUID3()}.tmp`);
       await writeFile2(temp, JSON.stringify(value));
       await rename2(temp, path4.join(root, "assignments.json"));

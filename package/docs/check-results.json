@@ -1,6 +1,6 @@
 {
   "passed": true,
-  "version": "0.1.12",
+  "version": "0.1.14",
   "id": "theastraydev-local-models",
   "freshRegistryInstall": true,
   "harmlessToolCalls": [
@@ -15,64 +15,106 @@
   "removedStoragePreserved": true,
   "fileSkills": 14,
   "referenceFiles": 5,
+  "orchestrationReferenceReadable": true,
+  "crossSkillReferenceRejected": true,
   "nativeRuns": 0,
   "serviceCalls": 3,
   "accountFlow": "none",
   "realAppChat": false,
   "realInference": false,
-  "upstreamReference": "06741ab9a9c5ae215272803f61eb2dcd1eff2804",
-  "inspectionPatch": "compat/inspection-budget.patch",
+  "hostBase": "c0f81c08",
+  "hostChanges": "platform-specific runtime candidates; unchanged sandbox and five-minute limits",
   "tests": {
-    "typescript": 31,
-    "python": 14,
+    "node": 50,
+    "python": 17,
+    "panelUi": 18,
     "typecheck": true,
     "build": true
   },
-  "stockDoctor": {
-    "ok": false,
-    "probe": "skipped",
-    "errors": [
-      "Package is not installable: Native job model: timeoutMs must be an integer from 1000 to 300000 milliseconds"
-    ]
-  },
-  "referenceDoctor": {
+  "doctor": {
     "ok": true,
     "probe": "ready",
     "scan": "caution",
-    "notes": [
-      "Third-party bundled encoding table and files outside scanner text extensions remain visible; no warnings are suppressed."
-    ]
+    "note": "Bundled encoding table and unscanned file extensions remain disclosed."
   },
-  "redFirst": {
-    "check": "Linux CI rejected the existing hostile installer-path assertion on 0.1.9",
-    "url": "https://github.com/TheAstrayDev/genex-local-models/actions/runs/38913286804",
-    "assertionFlipped": false,
-    "additionalHostilePaths": true
-  },
-  "orchestrationReferenceReadable": true,
-  "crossSkillReferenceRejected": true,
-  "guidanceUpdate": {
-    "agentInstructionsOnly": true,
-    "hostEnforcedGate": false,
-    "generationCodeChanged": false,
-    "fullAutonomousBuildEvaluated": false,
-    "version": "0.1.11"
-  },
-  "platformUpdate": {
-    "experimental": true,
-    "osArchitectureVersionGates": true,
-    "appleSiliconBackend": "metal",
-    "newWindowsBackend": "vulkan",
-    "existingCudaPreserved": true,
-    "gpuInventoryProbed": false,
-    "fullInferenceOnAppleSilicon": false,
-    "fullInferenceOnAmd": false,
-    "runtimeStartupCi": "https://github.com/TheAstrayDev/genex-local-models/actions/runs/38925242300",
-    "unmodifiedVulkanAudioLpacProbe": "rejected with weakly_canonical access denial",
-    "fixedVulkanAudioLpacProbe": "passed: malformed GGUF reached parser, no ancestor access denial",
-    "catalogPlatformFiltering": false,
-    "longJobIssue": "https://github.com/genex-games/genex-desktop/issues/170",
-    "realVulkanAudioGeneration": "failed before inference: local Windows LPAC sandbox enumerated CPU only; outside sandbox Vulkan enumerated RTX 4070",
-    "vulkanAudioBuild": "https://github.com/TheAstrayDev/genex-local-models/actions/runs/38925241504"
+  "newQ8MiniInference": false,
+  "catalogSubmissionReady": false,
+  "historicalEvidence": {
+    "passed": true,
+    "version": "0.1.12",
+    "id": "theastraydev-local-models",
+    "freshRegistryInstall": true,
+    "harmlessToolCalls": [
+      "status",
+      "assets"
+    ],
+    "sameBindingEnableAndUse": true,
+    "syntheticPreviousVersion": "0.1.11",
+    "assignmentsPreserved": true,
+    "disabledToolsAndSkillsWithdrawn": true,
+    "removedToolsAndSkillsWithdrawn": true,
+    "removedStoragePreserved": true,
+    "fileSkills": 14,
+    "referenceFiles": 5,
+    "nativeRuns": 0,
+    "serviceCalls": 3,
+    "accountFlow": "none",
+    "realAppChat": false,
+    "realInference": false,
+    "upstreamReference": "06741ab9a9c5ae215272803f61eb2dcd1eff2804",
+    "inspectionPatch": "compat/inspection-budget.patch",
+    "tests": {
+      "typescript": 31,
+      "python": 14,
+      "typecheck": true,
+      "build": true
+    },
+    "stockDoctor": {
+      "ok": false,
+      "probe": "skipped",
+      "errors": [
+        "Package is not installable: Native job model: timeoutMs must be an integer from 1000 to 300000 milliseconds"
+      ]
+    },
+    "referenceDoctor": {
+      "ok": true,
+      "probe": "ready",
+      "scan": "caution",
+      "notes": [
+        "Third-party bundled encoding table and files outside scanner text extensions remain visible; no warnings are suppressed."
+      ]
+    },
+    "redFirst": {
+      "check": "Linux CI rejected the existing hostile installer-path assertion on 0.1.9",
+      "url": "https://github.com/TheAstrayDev/genex-local-models/actions/runs/38913286804",
+      "assertionFlipped": false,
+      "additionalHostilePaths": true
+    },
+    "orchestrationReferenceReadable": true,
+    "crossSkillReferenceRejected": true,
+    "guidanceUpdate": {
+      "agentInstructionsOnly": true,
+      "hostEnforcedGate": false,
+      "generationCodeChanged": false,
+      "fullAutonomousBuildEvaluated": false,
+      "version": "0.1.11"
+    },
+    "platformUpdate": {
+      "experimental": true,
+      "osArchitectureVersionGates": true,
+      "appleSiliconBackend": "metal",
+      "newWindowsBackend": "vulkan",
+      "existingCudaPreserved": true,
+      "gpuInventoryProbed": false,
+      "fullInferenceOnAppleSilicon": false,
+      "fullInferenceOnAmd": false,
+      "runtimeStartupCi": "https://github.com/TheAstrayDev/genex-local-models/actions/runs/38925242300",
+      "unmodifiedVulkanAudioLpacProbe": "rejected with weakly_canonical access denial",
+      "fixedVulkanAudioLpacProbe": "passed: malformed GGUF reached parser, no ancestor access denial",
+      "catalogPlatformFiltering": false,
+      "longJobIssue": "https://github.com/genex-games/genex-desktop/issues/170",
+      "realVulkanAudioGeneration": "failed before inference: local Windows LPAC sandbox enumerated CPU only; outside sandbox Vulkan enumerated RTX 4070",
+      "vulkanAudioBuild": "https://github.com/TheAstrayDev/genex-local-models/actions/runs/38925241504"
+    }
   }
 }
