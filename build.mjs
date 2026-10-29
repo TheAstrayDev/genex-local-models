@@ -25,7 +25,7 @@ const jobs=[['image','image.png'],['audio','audio.wav'],['model-shape','shape.gl
  return {id:kind,runtime:kind==='image'?'qwen':'theastraydev-local-models',args:[{source:'package',name:'worker.py'},kind,{source:'output',name:output},...chunks.map(name=>({source:'value',name})),...inputs.map(name=>({source:'input',name}))],inputs,values:Object.fromEntries(chunks.map(key=>[key,{pattern:'^[A-Za-z0-9+/=.]{1,1024}$',maxLength:1024}])),outputs:kind==='model-shape'?[output,'reference.png']:[output],timeoutMs:OTHER_TIMEOUT_MS,maxOutputBytes:128000,maxAssetBytes:104857600,gpu:true};
 });
 const manifest={apiVersion:3,id:'theastraydev-local-models',version:'0.1.0',name:'Local Models',publisher:'TheAstrayDev',description:'Local asset generation with one model at a time. Qwen images, gated Stable Audio setup and experimental Hunyuan3D 2.0 Turbo. Standard Genex API 3; no customization API required.',icon:'icon.svg',backend:'backend.mjs',capabilities:['native-runtime','project.read','project.write','jobs'],tools,
-skills:[{name:'local-assets',text:'For asset generation prefer assigned local models when this plugin is enabled. First call theastraydev-local-models__status. Use theastraydev-local-models__generate-image for images or textures, theastraydev-local-models__generate-audio for music/sfx and theastraydev-local-models__generate-model for 3D from a reference PNG. Only installed, assigned adapters work; a chat LLM cannot substitute for an audio, image or mesh model. There is one model process at a time. If busy, wait for completion before trying again. Cancellation may take time to release GPU memory. Preserve exact delivered paths, load the returned asset in the game and verify visible or audible use. Do not call a paid genex generation tool as a silent fallback. This plugin does not replace publishing or account tools and cannot animate meshes.'}],panels:[{id:'setup',title:'Local Models',file:'panel.html',placement:'settings'}],settings:[],actions:[{name:'status',label:'Model status'},{name:'discover',label:'Find existing models'},{name:'assign',label:'Save assignments'}],nativeRuntimes:[{id:'qwen',label:'Qwen SSD Python',candidates:['home:Genex-Local-Models/qwen/python.exe','D:/Genex-Local-Models/runtime/python.exe'],version:{args:['--version'],pattern:'Python (\\d+\\.\\d+\\.\\d+)',minimum:'3.11.0'},platforms:[{platform:'win32',arch:'x64',candidates:['home:Genex-Local-Models/qwen/python.exe','D:/Genex-Local-Models/runtime/python.exe']}]},{id:'theastraydev-local-models',label:'Local Models Python',candidates:['D:/Genex-Local-Models/runtime/python.exe','home:Genex-Local-Models/runtime/python.exe','storage:runtimes/theastraydev-local-models/python.exe'],version:{args:['--version'],pattern:'Python (\\d+\\.\\d+\\.\\d+)',minimum:'3.11.0'},platforms:[{platform:'win32',arch:'x64',candidates:['D:/Genex-Local-Models/runtime/python.exe','home:Genex-Local-Models/runtime/python.exe','storage:runtimes/theastraydev-local-models/python.exe']}]}],nativeJobs:jobs};
+skills:[{name:'local-assets',text:'For asset generation prefer assigned local models when this plugin is enabled. First call theastraydev-local-models__status. Use theastraydev-local-models__generate-image for images or textures, theastraydev-local-models__generate-audio for music/sfx and theastraydev-local-models__generate-model for 3D from a reference PNG. Only installed, assigned adapters work; a chat LLM cannot substitute for an audio, image or mesh model. There is one model process at a time. If busy, wait for completion before trying again. Cancellation may take time to release GPU memory. Preserve exact delivered paths, load the returned asset in the game and verify visible or audible use. Do not call a paid genex generation tool as a silent fallback. This plugin does not replace publishing or account tools and cannot animate meshes.'}],panels:[{id:'setup',title:'Local Models',file:'panel.html',placement:'settings'}],settings:[],actions:[{name:'status',label:'Model status'},{name:'discover',label:'Find existing models'},{name:'assign',label:'Save assignments'}],nativeRuntimes:[],nativeJobs:jobs};
 manifest.description='Choose local models for images, textures, sound, music and 3D. Qwen Turbo Q4/Q8, Stable Audio and Hunyuan3D Turbo/Mini. Experimental platform profiles; 3D needs separate Windows CUDA setup. Each native job is capped at five minutes. New Q8/Mini inference is not yet verified.';
 manifest.version=version;
 manifest.skills=[localWorkflow,...await fileSkills(root)];
@@ -36,27 +36,22 @@ modelTool.parameters.properties.shapeJobId={type:'string',description:'Exact com
 modelTool.parameters.properties.prompt.description='Describe the object and art style. Returns a reference-ready continuation, then shape-ready, then the textured GLB. Follow each nextCall in a separate call.';
 manifest.capabilities.push('network','observe');
 manifest.network={hosts:['huggingface.co','github.com','www.python.org']};
-manifest.nativeRuntimes=manifest.nativeRuntimes.filter(runtime=>runtime.id!=='theastraydev-local-models');
-const qwen=manifest.nativeRuntimes.find(runtime=>runtime.id==='qwen');
-qwen.candidates=['home:Genex-Local-Models/qwen/python.exe','D:/Genex-Local-Models/qwen/python.exe'];
-qwen.platforms[0].candidates=qwen.candidates;
-manifest.actions.push({name:'install',label:'Install model',confirmation:'Download the selected public model and its verified runtime (up to 11 GB). Its original model license applies. No account or token is sent.'},{name:'cancel-install',label:'Cancel model download'});
+// The host stores these declared settings and uses them for native discovery.
+// An optional existing runtime can live anywhere the person chooses.
+for(const family of ['qwen','audio','hunyuan']){
+ const key=family+'-python';
+ manifest.settings.push({key,label:family+' Python program (optional full path to a prepared runtime)',type:'string',default:''});
+ const selected='setting:'+key;
+ const win=[selected,`home:Genex-Local-Models/${family}/python.exe`,`storage:runtimes/${family}/python.exe`];
+ const mac=[selected,`home:Genex-Local-Models/${family}.app/Contents/bin/python3.11`,`storage:runtimes/${family}.app/Contents/bin/python3.11`];
+ const platforms=[{platform:'win32-x64',candidates:win}];
+ if(family!=='hunyuan')platforms.push({platform:'darwin-arm64',candidates:mac});
+ manifest.nativeRuntimes.push({id:family,label:family+' local runtime',candidates:family==='hunyuan'?win:[...win,...mac.filter(candidate=>candidate!==selected)],version:{args:['--version'],pattern:'Python (\\d+\\.\\d+\\.\\d+)',minimum:'3.11.0'},platforms});
+}
+manifest.actions.push({name:'install',label:'Install model',confirmation:'Download the selected public model and its verified runtime? The review shows the size and folders. Original model licenses apply. No account or token is sent.'},{name:'cancel-install',label:'Cancel model download'});
 manifest.actions.push({name:'restore-assets',label:'Restore generated assets to this game'});
 manifest.actions.push({name:'activity',label:'Generation activity'});
-manifest.actions.find(action=>action.name==='install').confirmation='Download the selected public model and its verified runtime? The review shows the size and folders. Original model licenses apply. No account or token is sent.';
-for(const family of ['audio','hunyuan']){
- const candidates=[`home:Genex-Local-Models/${family}/python.exe`,`D:/Genex-Local-Models/${family}/python.exe`];
- manifest.nativeRuntimes.push({id:family,label:`${family} local runtime`,candidates,version:{args:['--version'],pattern:'Python (\\d+\\.\\d+\\.\\d+)',minimum:'3.11.0'},platforms:[{platform:'win32',arch:'x64',candidates}]});
-}
 for(const job of manifest.nativeJobs)if(job.id!=='image')job.runtime=job.id==='audio'?'audio':'hunyuan';
-// Keep cross-platform top-level declarations on portable aliases. Compatible Windows
-// hosts select their platform-specific candidates, including the secondary-drive runtime.
-for(const runtime of manifest.nativeRuntimes)runtime.candidates=runtime.candidates.filter(candidate=>candidate.startsWith('home:'));
-for(const runtime of manifest.nativeRuntimes.filter(runtime=>runtime.id!=='hunyuan')){
- const candidate=`home:Genex-Local-Models/${runtime.id}.app/Contents/bin/python3.11`;
- runtime.candidates.push(candidate);
- runtime.platforms.push({platform:'darwin',arch:'arm64',candidates:[candidate]});
-}
 await writeFile(path.join(out,'plugin.json'),JSON.stringify(manifest,null,2));
 await cp(path.join(root,'plugin/skills'),path.join(out,'skills'),{recursive:true});
 await cp(path.join(root,'plugin/worker.py'),path.join(out,'worker.py'));

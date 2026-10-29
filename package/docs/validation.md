@@ -2,7 +2,7 @@
 
 ## Source update 0.1.14
 
-- 50 Node tests pass: saved/Off choices, incompatible assignment refusal, one parallel probe per runtime family, activity reads without probes, model-pinned 3D continuations and reuse, verified shared-weight reuse, plus the existing generation/install/asset boundaries.
+- 51 Node tests pass: saved/Off choices, incompatible assignment refusal, one parallel probe per runtime family, activity reads without probes, model-pinned 3D continuations and reuse, verified shared-weight reuse, plus the existing generation/install/asset boundaries.
 - 17 Python tests pass without model weights: fixed Q4/Q8 diffusion paths, fixed Turbo/Mini checkpoint selection and existing worker/mesh checks.
 - 18 Electron panel checks pass in an isolated SDK fixture: light/dark themes, keyboard save, narrow layout, preserved drafts on refresh/failure, model details and cheap activity updates. Screenshots show this fixture, not a live Genex game.
 - TypeScript checking passes. Production packaging and the disposable real-host registry fixture are rerun for this source version; the machine-readable check result records their scope.

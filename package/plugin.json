@@ -293,7 +293,26 @@
       "placement": "settings"
     }
   ],
-  "settings": [],
+  "settings": [
+    {
+      "key": "qwen-python",
+      "label": "qwen Python program (optional full path to a prepared runtime)",
+      "type": "string",
+      "default": ""
+    },
+    {
+      "key": "audio-python",
+      "label": "audio Python program (optional full path to a prepared runtime)",
+      "type": "string",
+      "default": ""
+    },
+    {
+      "key": "hunyuan-python",
+      "label": "hunyuan Python program (optional full path to a prepared runtime)",
+      "type": "string",
+      "default": ""
+    }
+  ],
   "actions": [
     {
       "name": "status",
@@ -328,10 +347,13 @@
   "nativeRuntimes": [
     {
       "id": "qwen",
-      "label": "Qwen SSD Python",
+      "label": "qwen local runtime",
       "candidates": [
+        "setting:qwen-python",
         "home:Genex-Local-Models/qwen/python.exe",
-        "home:Genex-Local-Models/qwen.app/Contents/bin/python3.11"
+        "storage:runtimes/qwen/python.exe",
+        "home:Genex-Local-Models/qwen.app/Contents/bin/python3.11",
+        "storage:runtimes/qwen.app/Contents/bin/python3.11"
       ],
       "version": {
         "args": [
@@ -342,18 +364,19 @@
       },
       "platforms": [
         {
-          "platform": "win32",
-          "arch": "x64",
+          "platform": "win32-x64",
           "candidates": [
+            "setting:qwen-python",
             "home:Genex-Local-Models/qwen/python.exe",
-            "D:/Genex-Local-Models/qwen/python.exe"
+            "storage:runtimes/qwen/python.exe"
           ]
         },
         {
-          "platform": "darwin",
-          "arch": "arm64",
+          "platform": "darwin-arm64",
           "candidates": [
-            "home:Genex-Local-Models/qwen.app/Contents/bin/python3.11"
+            "setting:qwen-python",
+            "home:Genex-Local-Models/qwen.app/Contents/bin/python3.11",
+            "storage:runtimes/qwen.app/Contents/bin/python3.11"
           ]
         }
       ]
@@ -362,8 +385,11 @@
       "id": "audio",
       "label": "audio local runtime",
       "candidates": [
+        "setting:audio-python",
         "home:Genex-Local-Models/audio/python.exe",
-        "home:Genex-Local-Models/audio.app/Contents/bin/python3.11"
+        "storage:runtimes/audio/python.exe",
+        "home:Genex-Local-Models/audio.app/Contents/bin/python3.11",
+        "storage:runtimes/audio.app/Contents/bin/python3.11"
       ],
       "version": {
         "args": [
@@ -374,18 +400,19 @@
       },
       "platforms": [
         {
-          "platform": "win32",
-          "arch": "x64",
+          "platform": "win32-x64",
           "candidates": [
+            "setting:audio-python",
             "home:Genex-Local-Models/audio/python.exe",
-            "D:/Genex-Local-Models/audio/python.exe"
+            "storage:runtimes/audio/python.exe"
           ]
         },
         {
-          "platform": "darwin",
-          "arch": "arm64",
+          "platform": "darwin-arm64",
           "candidates": [
-            "home:Genex-Local-Models/audio.app/Contents/bin/python3.11"
+            "setting:audio-python",
+            "home:Genex-Local-Models/audio.app/Contents/bin/python3.11",
+            "storage:runtimes/audio.app/Contents/bin/python3.11"
           ]
         }
       ]
@@ -394,7 +421,9 @@
       "id": "hunyuan",
       "label": "hunyuan local runtime",
       "candidates": [
-        "home:Genex-Local-Models/hunyuan/python.exe"
+        "setting:hunyuan-python",
+        "home:Genex-Local-Models/hunyuan/python.exe",
+        "storage:runtimes/hunyuan/python.exe"
       ],
       "version": {
         "args": [
@@ -405,11 +434,11 @@
       },
       "platforms": [
         {
-          "platform": "win32",
-          "arch": "x64",
+          "platform": "win32-x64",
           "candidates": [
+            "setting:hunyuan-python",
             "home:Genex-Local-Models/hunyuan/python.exe",
-            "D:/Genex-Local-Models/hunyuan/python.exe"
+            "storage:runtimes/hunyuan/python.exe"
           ]
         }
       ]

@@ -42,10 +42,12 @@ try{
  await writeFile(path.join(previous,'plugin.json'),JSON.stringify({...manifest,version:'0.1.11'},null,2));
  await registry.installLocal(previous,'local',manifest.capabilities,undefined,await scanPackage(previous,await inspectPackage(previous)));
  await registry.setEnabled(id,true);
+ await registry.setSetting(id,'hunyuan-python','C:/prepared-runtime/python.exe');
  const settings={image:null,texture:'qwen-image-2.1-turbo',sfx:null,music:'stable-audio-3-small-music',model:null};
  await registry.action(id,'assign',settings,binding);
  await registry.installLocal(source,'local',manifest.capabilities,undefined,scan);
  await registry.setEnabled(id,true);
+ assert.equal((await registry.settings(id))['hunyuan-python'],'C:/prepared-runtime/python.exe');
  const snapshot=registry.snapshot();
  assert.equal(snapshot.tools.filter((tool:any)=>tool.name===id+'__skill').length,1);
  assert.equal(snapshot.applied.skills.length,15);

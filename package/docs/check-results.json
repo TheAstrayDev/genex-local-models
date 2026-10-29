@@ -23,9 +23,9 @@
   "realAppChat": false,
   "realInference": false,
   "hostBase": "c0f81c08",
-  "hostChanges": "platform-specific runtime candidates; unchanged sandbox and five-minute limits",
+  "hostChanges": "platform-specific runtime candidates using NativePlatform; unchanged sandbox and five-minute limits",
   "tests": {
-    "node": 50,
+    "node": 51,
     "python": 17,
     "panelUi": 18,
     "typecheck": true,
@@ -116,5 +116,6 @@
       "realVulkanAudioGeneration": "failed before inference: local Windows LPAC sandbox enumerated CPU only; outside sandbox Vulkan enumerated RTX 4070",
       "vulkanAudioBuild": "https://github.com/TheAstrayDev/genex-local-models/actions/runs/38925241504"
     }
-  }
+  },
+  "runtimeSettingPreserved": true
 }

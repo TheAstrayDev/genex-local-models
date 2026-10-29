@@ -23,7 +23,9 @@ A 3D request keeps its selected model from reference to shape to paint, even if 
 
 Status now probes the three interpreter families once each, in parallel, rather than probing Qwen twice in a serial chain. Visible activity polling reads only execution/install state. The panel follows Genex's light/dark theme, keeps unsaved choices during refresh/errors and supports keyboard saving and narrow windows.
 
-Native paths on a secondary Windows drive use the proposed platform-specific runtime-candidate host contract. Hosts without that addition retain the existing `home:` fallback; a D:-only runtime can remain unavailable there. No application patch or sandbox bypass is applied by this plugin.
+For an existing prepared runtime, open the plugin's **Settings** and enter the full Python program path for Qwen, audio or Hunyuan. The host also checks each family's `storage:runtimes/` location and the existing home-folder layout. The accompanying host change selects candidates by platform; older hosts use the cross-platform fallback. The installer currently writes Qwen/audio to the home folder, not to plugin storage.
+
+If an earlier version found your runtime only at its hard-coded `D:` path, enter the full path to its existing Python program in the corresponding Settings field after updating. Nothing is moved or deleted. The runtime must still have the required companion files and pass the host's checks.
 
 ## Platform availability
 
@@ -104,7 +106,7 @@ The user-confirmed Install action supports Qwen and Stable Audio. Installing the
 
 Weights live under each runtime's `models/<model-id>/` directory. Cached downloads and working weights are separate copies; account for both when planning disk space. The macOS `.app` layout keeps Python, its libraries, model files and child CLIs inside the host's existing native sandbox boundary. It does not launch a GUI application or change the Genex host. Setup preserves 15 GiB free on C: and 2 GiB on other drives. Cancellation preserves partial downloads for retry. After installation, choose the model for a route and save assignments; Studio can then call it. Model processes start only for a request and exit afterward.
 
-Hunyuan currently needs separate setup. Its Install button is absent; the backend also refuses automatic setup. The prepared runtime is detected at `~/Genex-Local-Models/hunyuan/python.exe` or `D:/Genex-Local-Models/hunyuan/python.exe` on the compatible Windows host. It needs verified portable code, checkpoints, compiled texture extensions and loader preparation described in [runtime notes](docs/runtimes.md). A turnkey Hunyuan installer and a clean-machine acceptance test are outstanding. Arbitrary existing Ollama/LM Studio/Hugging Face models cannot be used merely by selecting their filename.
+Hunyuan currently needs separate setup. Its Install button is absent; the backend also refuses automatic setup. On Windows, a prepared runtime is detected at `~/Genex-Local-Models/hunyuan/python.exe`, under plugin storage at `runtimes/hunyuan/python.exe`, or at the Python path entered in the plugin's Settings. It needs verified portable code, checkpoints, compiled texture extensions and loader preparation described in [runtime notes](docs/runtimes.md). A turnkey Hunyuan installer and a clean-machine acceptance test are outstanding. Arbitrary existing Ollama/LM Studio/Hugging Face models cannot be used merely by selecting their filename.
 
 ## Access and data
 
