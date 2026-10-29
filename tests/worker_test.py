@@ -12,6 +12,50 @@ hunyuan = importlib.util.module_from_spec(spec_hunyuan)
 spec_hunyuan.loader.exec_module(hunyuan)
 
 class WorkerTests(unittest.TestCase):
+    def test_qwen_q8_selects_only_its_reviewed_diffusion_file(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root/'runtime.json').write_text(json.dumps({'sd_cli':'sd-cpp/sd-cli.exe','backend':'vulkan'}))
+            request = {'model':'qwen-image-2.1-turbo-q8','prompt':'stone','seed':42,'size':512}
+            command = worker.image_command(root, request, root/'image.png')
+            self.assertEqual(command[command.index('--diffusion-model')+1], str(root/'models/qwen-image-2.1-turbo/diffusion-q8.gguf'))
+            self.assertEqual(command[command.index('--llm')+1], str(root/'models/qwen-image-2.1-turbo/text-encoder.gguf'))
+            for model in ['../outside', 'qwen-image-2.1-turbo-q5', 'hunyuan3d-2-mini-turbo']:
+                with self.assertRaises(ValueError):
+                    worker.image_command(root, {**request, 'model':model}, root/'image.png')
+
+    def test_hunyuan_mini_uses_a_fixed_shape_checkpoint_and_shared_painter(self):
+        root = Path('D:/owned-runtime')
+        model = 'hunyuan3d-2-mini-turbo'
+        self.assertEqual(hunyuan.shape_checkpoint(root, model),
+                         (root/'models/tencent/Hunyuan3D-2mini', 'hunyuan3d-dit-v2-mini-turbo'))
+        command = hunyuan.command(root, {'model':model,'seed':42}, 'out.glb', 'in.png')
+        self.assertEqual(command[-1], model)
+        paint = hunyuan.command(root, {'model':model,'seed':42}, 'out.glb', 'in.png', 'paint', 'shape.glb')
+        self.assertEqual(paint[-6:], ['paint','shape.glb','out.glb','42','balanced','in.png'])
+        for invalid in ['../arbitrary', 'hunyuan3d-2-mini', None, {}]:
+            with self.assertRaises(ValueError):
+                hunyuan.shape_checkpoint(root, invalid)
+
+    def test_hunyuan_mini_main_keeps_the_selected_shape_adapter_before_importing_gpu_code(self):
+        import tempfile
+        from unittest.mock import patch
+        model = 'hunyuan3d-2-mini-turbo'
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            command = ['hunyuan.py','shape','input.png',str(root/'shape.glb'),'42','balanced',model]
+            with patch.object(hunyuan.sys,'argv',command), patch.object(hunyuan.sys,'executable',str(root/'python.exe')), \
+                 patch.dict(hunyuan.os.environ,{'TMPDIR':folder}), patch.object(hunyuan,'setup') as setup, \
+                 patch.object(hunyuan,'shape') as shape:
+                hunyuan.main()
+                self.assertEqual(shape.call_args.args[-1],model)
+                setup.assert_called_once()
+            with patch.object(hunyuan.sys,'argv',[*command[:-1],'../unreviewed']), patch.object(hunyuan,'setup') as setup:
+                with self.assertRaises(ValueError):
+                    hunyuan.main()
+                setup.assert_not_called()
+
     def test_metal_and_vulkan_commands_use_fixed_local_backends(self):
         import tempfile
         with tempfile.TemporaryDirectory() as folder:

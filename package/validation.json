@@ -1,49 +1,100 @@
 {
-  "version": "0.1.13",
-  "status": "experimental prerelease",
-  "host": "Existing local Windows LPAC host for GPU checks; unchanged upstream five-minute validator/registry for package checks",
-  "stockCompatible": false,
-  "hardware": {
-    "gpu": "RTX 4070 12 GB",
-    "ramGiB": 32,
-    "os": "Windows x64"
-  },
-  "prototypeEvidence": {
-    "nodeTests": 26,
-    "pythonTests": 13,
-    "modelJobsSequential": true,
-    "nativeRgbaIconSeconds": 76.032,
-    "nativeRgbaReferenceSeconds": 46.352,
-    "hunyuanBalancedSeconds": 392.872,
-    "hunyuanExperimentalHighSeconds": 449.412,
-    "highOriginalPaintView": 768,
-    "highRepaint512Seconds": 137.406,
-    "highRepaintOnly": true,
-    "highVisualRegression": "More paint noise on tested car; not promoted to default.",
-    "fullGameQualityEvaluation": false
-  },
-  "privacy": "No personal project records, prompt transcripts, local job IDs or machine-specific log files are included.",
-  "notes": [
-    "These are observed prototype measurements, not a fresh-install claim for this publisher-prefixed package.",
-    "Cold starts vary with cache and disk. A skill does not guarantee artistic quality."
-  ],
+  "version": "0.1.14",
+  "status": "experimental source update",
   "publicChecks": {
-    "typescript": 40,
-    "python": 14,
-    "metalVulkanProfiles": "experimental",
-    "fullInferenceOnMacAmd": false,
-    "stockHostCompatible": false,
-    "stockTimeoutDeclarationAccepted": true,
-    "nativeJobTimeoutMs": 300000,
-    "separateShapePaintJobs": true,
-    "realSplitGpuCheck": {
-      "shapeRuntimeExitSeconds": 297.5,
-      "shapeOutputWritten": true,
-      "finalNativeState": "failed",
-      "reason": "Local Windows host native access recovery failed",
-      "paintStarted": false,
-      "endToEndPassed": false,
-      "trustedCleanupOnlySucceeded": true
+    "passed": true,
+    "version": "0.1.14",
+    "id": "theastraydev-local-models",
+    "freshRegistryInstall": true,
+    "harmlessToolCalls": [
+      "status",
+      "assets"
+    ],
+    "sameBindingEnableAndUse": true,
+    "syntheticPreviousVersion": "0.1.11",
+    "assignmentsPreserved": true,
+    "disabledToolsAndSkillsWithdrawn": true,
+    "removedToolsAndSkillsWithdrawn": true,
+    "removedStoragePreserved": true,
+    "fileSkills": 14,
+    "referenceFiles": 5,
+    "orchestrationReferenceReadable": true,
+    "crossSkillReferenceRejected": true,
+    "nativeRuns": 0,
+    "serviceCalls": 3,
+    "accountFlow": "none",
+    "realAppChat": false,
+    "realInference": false,
+    "hostBase": "c0f81c08",
+    "hostChanges": "platform-specific runtime candidates using NativePlatform; unchanged sandbox and five-minute limits",
+    "tests": {
+      "node": 51,
+      "python": 17,
+      "panelUi": 18,
+      "typecheck": true,
+      "build": true
+    },
+    "doctor": {
+      "ok": true,
+      "probe": "ready",
+      "scan": "caution",
+      "note": "Bundled encoding table and unscanned file extensions remain disclosed."
+    },
+    "newQ8MiniInference": false,
+    "catalogSubmissionReady": false,
+    "runtimeSettingPreserved": true
+  },
+  "notes": [
+    "No weights downloaded or GPU inference performed for the new Q8/Mini adapters.",
+    "Earlier measurements remain historical; they do not validate these new profiles or current released-host inference."
+  ],
+  "historicalEvidence": {
+    "version": "0.1.13",
+    "status": "experimental prerelease",
+    "host": "Existing local Windows LPAC host for GPU checks; unchanged upstream five-minute validator/registry for package checks",
+    "stockCompatible": false,
+    "hardware": {
+      "gpu": "RTX 4070 12 GB",
+      "ramGiB": 32,
+      "os": "Windows x64"
+    },
+    "prototypeEvidence": {
+      "nodeTests": 26,
+      "pythonTests": 13,
+      "modelJobsSequential": true,
+      "nativeRgbaIconSeconds": 76.032,
+      "nativeRgbaReferenceSeconds": 46.352,
+      "hunyuanBalancedSeconds": 392.872,
+      "hunyuanExperimentalHighSeconds": 449.412,
+      "highOriginalPaintView": 768,
+      "highRepaint512Seconds": 137.406,
+      "highRepaintOnly": true,
+      "highVisualRegression": "More paint noise on tested car; not promoted to default.",
+      "fullGameQualityEvaluation": false
+    },
+    "privacy": "No personal project records, prompt transcripts, local job IDs or machine-specific log files are included.",
+    "notes": [
+      "These are observed prototype measurements, not a fresh-install claim for this publisher-prefixed package.",
+      "Cold starts vary with cache and disk. A skill does not guarantee artistic quality."
+    ],
+    "publicChecks": {
+      "typescript": 40,
+      "python": 14,
+      "metalVulkanProfiles": "experimental",
+      "fullInferenceOnMacAmd": false,
+      "stockHostCompatible": false,
+      "stockTimeoutDeclarationAccepted": true,
+      "nativeJobTimeoutMs": 300000,
+      "separateShapePaintJobs": true,
+      "realSplitGpuCheck": {
+        "shapeRuntimeExitSeconds": 297.5,
+        "shapeOutputWritten": true,
+        "finalNativeState": "failed",
+        "reason": "Local Windows host native access recovery failed",
+        "paintStarted": false,
+        "endToEndPassed": false,
+        "trustedCleanupOnlySucceeded": true
+      }
     }
   }
 }

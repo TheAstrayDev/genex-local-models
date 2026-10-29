@@ -4,7 +4,28 @@ Generate local game images, textures, sound and music with platform-specific Met
 
 **Experimental prerelease; catalog submission remains a draft.** All native jobs use the existing five-minute limit. Hunyuan shape and paint are separate jobs and tool calls. A paint failure retains the untextured shape and reports incomplete texturing. Version 0.1.13 removes the previous 35-minute manifest rejection. Released-host inference, clean setup and platform visibility still need validation. See [Compatibility](docs/compatibility.md).
 
-Plugin ID: `theastraydev-local-models`. Publisher: `TheAstrayDev`. Version: `0.1.13`. This first catalog submission follows the maintainer decision in [#170](https://github.com/genex-games/genex-desktop/issues/170#issuecomment-6233006335). Version 0.1.12 experimental Metal/Vulkan profiles and 0.1.11 orchestration remain. Existing release artifacts are unchanged. The bare `local-models` ID remains a local prototype. Do not enable both identities together: their independent locks do not serialize work. This package does not migrate or remove prototype data.
+Plugin ID: `theastraydev-local-models`. Publisher: `TheAstrayDev`. Source version: `0.1.14`; the last published prerelease is `0.1.13`. This first catalog submission follows the maintainer decision in [#170](https://github.com/genex-games/genex-desktop/issues/170#issuecomment-6233006335). Existing release artifacts are unchanged. The bare `local-models` ID remains a local prototype. Do not enable both identities together: their independent locks do not serialize work. This package does not migrate or remove prototype data.
+
+## Choose what your AI uses
+
+Open the plugin and choose a model for each task, then **Save changes**. The AI uses those saved choices automatically. **Off** disables that type of local generation. Saving a choice downloads nothing and preserves other routes; models that need installation say so. Unsupported saved choices remain visible and can be switched off.
+
+| Task | Choices |
+| --- | --- |
+| Images and textures | Qwen Image 2.1 Turbo Q4 (existing default), or experimental Q8 |
+| Sound effects | Stable Audio 3 Small SFX |
+| Music | Stable Audio 3 Small Music |
+| 3D objects | Hunyuan3D 2.0 Turbo, or experimental Hunyuan3D 2mini Turbo |
+
+Q4 and Q8 are quantizations of the same image model. Q8 uses more memory; its pinned diffusion file is 7.64 GB and a complete cold setup needs about 13.3 GB of weights plus runtime. Both variants share the encoder and VAE. Verified existing companion files are reused instead of downloading them again. Q8 and Mini command/selection behavior is tested; their actual inference, memory fit and five-minute completion on your GPU remain unverified. Mini needs its own local shape checkpoint and setup marker, and uses the existing shared painter. Its setup remains manual.
+
+A 3D request keeps its selected model from reference to shape to paint, even if you change defaults for later requests. Different models never reuse each other's finished shape. No arbitrary discovered GGUF file is treated as an image, audio or 3D adapter.
+
+Status now probes the three interpreter families once each, in parallel, rather than probing Qwen twice in a serial chain. Visible activity polling reads only execution/install state. The panel follows Genex's light/dark theme, keeps unsaved choices during refresh/errors and supports keyboard saving and narrow windows.
+
+For an existing prepared runtime, open the plugin's **Settings** and enter the full Python program path for Qwen, audio or Hunyuan. The host also checks each family's `storage:runtimes/` location and the existing home-folder layout. The accompanying host change selects candidates by platform; older hosts use the cross-platform fallback. The installer currently writes Qwen/audio to the home folder, not to plugin storage.
+
+If an earlier version found your runtime only at its hard-coded `D:` path, enter the full path to its existing Python program in the corresponding Settings field after updating. Nothing is moved or deleted. The runtime must still have the required companion files and pass the host's checks.
 
 ## Platform availability
 
@@ -18,7 +39,7 @@ Plugin ID: `theastraydev-local-models`. Publisher: `TheAstrayDev`. Version: `0.1
 
 These are implemented experimental profiles, not a claim of validated inference on every listed GPU. Host OS/architecture/version gates setup and routes. The panel shows driver/memory requirements but does not query the GPU or certify available VRAM. Qwen has about 10 GB of weights; plan for 12 GB VRAM or 24 GB unified memory. The pinned macOS image CLI has a macOS 26 minimum in its Mach-O header; audio has 13.3. A generic Metal backend does not establish that every model fits memory or finishes within five minutes.
 
-**Known Windows Vulkan host blocker:** the LPAC-compatible audio runtime can read its model file, but a real generation attempt on the local Windows host reported no Vulkan GPU registered. The same binary enumerates the RTX 4070 outside that sandbox. The plugin does not bypass the sandbox or silently switch to CPU. AMD end-to-end support therefore remains unverified and depends on resolving host GPU/driver visibility. Existing CUDA installations retain their tested path.
+**Historical Windows Vulkan finding:** a prior LPAC host could read the audio model but reported no Vulkan GPU registered during generation. Current Genex has changed its Windows sandbox, so that earlier result does not establish the behavior of today's host. Fresh Vulkan/AMD end-to-end acceptance remains unverified. The plugin does not bypass the sandbox or silently switch to CPU. Existing CUDA installations retain their earlier path.
 
 Unsupported models have no Install button and cannot be selected for new work. Existing assignments are retained and blocked explicitly when incompatible. Hunyuan's current texture adapter uses Windows CUDA extensions; neither a Mac/ROCm Hunyuan port nor automatic CPU fallback is claimed. Platform checks inside a plugin cannot hide its entry in the host catalog: catalog-level OS/GPU filtering still needs an agreed host contract.
 
@@ -26,10 +47,10 @@ Unsupported models have no Install button and cannot be selected for new work. E
 
 | Task | Implementation | Output |
 | --- | --- | --- |
-| Images and textures | Qwen Image 2.1 Turbo Q4_K_M, matching text encoder and VAE, stable-diffusion.cpp | PNG |
+| Images and textures | Qwen Image 2.1 Turbo Q4_K_M or experimental Q8_0, matching text encoder and VAE, stable-diffusion.cpp | PNG |
 | Sound effects | Stable Audio 3 Small SFX Q8, audio.cpp | Stereo WAV |
 | Instrumental music | Stable Audio 3 Small Music Q8, audio.cpp | Stereo WAV |
-| Static 3D | Hunyuan3D 2.0 Turbo, separately provisioned Windows Portable runtime | Textured GLB |
+| Static 3D | Hunyuan3D 2.0 Turbo or experimental 2mini Turbo, separately provisioned Windows Portable runtime | Textured GLB |
 
 **Hunyuan graphics requirements:** Windows x64 and an NVIDIA GPU with CUDA support, plus the separately prepared Portable runtime. The tested configuration is an RTX 4070 with 12 GB VRAM and 32 GB system RAM. This is a tested configuration, not a verified minimum for every GPU. AMD/Intel GPUs and Apple Silicon cannot use this Hunyuan adapter. Each shape/paint job is forcibly capped at 300 seconds; cold starts and slower devices can exceed that cap. No quality reduction or CPU fallback is automatic. Rigging, animation, voice, video and a local coding/chat model are not implemented. Existing cache discovery is metadata-only. Studio writes game logic, VFX and shaders.
 
@@ -85,7 +106,7 @@ The user-confirmed Install action supports Qwen and Stable Audio. Installing the
 
 Weights live under each runtime's `models/<model-id>/` directory. Cached downloads and working weights are separate copies; account for both when planning disk space. The macOS `.app` layout keeps Python, its libraries, model files and child CLIs inside the host's existing native sandbox boundary. It does not launch a GUI application or change the Genex host. Setup preserves 15 GiB free on C: and 2 GiB on other drives. Cancellation preserves partial downloads for retry. After installation, choose the model for a route and save assignments; Studio can then call it. Model processes start only for a request and exit afterward.
 
-Hunyuan currently needs separate setup. Its Install button is absent; the backend also refuses automatic setup. The prepared runtime is detected at `~/Genex-Local-Models/hunyuan/python.exe` or `D:/Genex-Local-Models/hunyuan/python.exe` on the compatible Windows host. It needs verified portable code, checkpoints, compiled texture extensions and loader preparation described in [runtime notes](docs/runtimes.md). A turnkey Hunyuan installer and a clean-machine acceptance test are outstanding. Arbitrary existing Ollama/LM Studio/Hugging Face models cannot be used merely by selecting their filename.
+Hunyuan currently needs separate setup. Its Install button is absent; the backend also refuses automatic setup. On Windows, a prepared runtime is detected at `~/Genex-Local-Models/hunyuan/python.exe`, under plugin storage at `runtimes/hunyuan/python.exe`, or at the Python path entered in the plugin's Settings. It needs verified portable code, checkpoints, compiled texture extensions and loader preparation described in [runtime notes](docs/runtimes.md). A turnkey Hunyuan installer and a clean-machine acceptance test are outstanding. Arbitrary existing Ollama/LM Studio/Hugging Face models cannot be used merely by selecting their filename.
 
 ## Access and data
 

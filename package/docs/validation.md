@@ -1,5 +1,17 @@
 # Validation scope
 
+## Source update 0.1.14
+
+- 51 Node tests pass: saved/Off choices, incompatible assignment refusal, one parallel probe per runtime family, activity reads without probes, model-pinned 3D continuations and reuse, verified shared-weight reuse, plus the existing generation/install/asset boundaries.
+- 17 Python tests pass without model weights: fixed Q4/Q8 diffusion paths, fixed Turbo/Mini checkpoint selection and existing worker/mesh checks.
+- 18 Electron panel checks pass in an isolated SDK fixture: light/dark themes, keyboard save, narrow layout, preserved drafts on refresh/failure, model details and cheap activity updates. Screenshots show this fixture, not a live Genex game.
+- TypeScript checking passes. Production packaging and the disposable real-host registry fixture are rerun for this source version; the machine-readable check result records their scope.
+- The accompanying host change has 107 passing focused native/SDK tests and three platform skips. Its full static chain stops at five pre-existing test-style findings in unrelated files; typechecking and changed-file lint pass.
+
+New Q8/Mini inference, GPU memory fit and cold five-minute completion remain unverified. No model weights were downloaded for these checks. The earlier LPAC findings below describe the historical tested host; they are not evidence that the same failure persists in current Genex. The public catalog PR remains draft pending its real-host acceptance gates.
+
+## Earlier public-package evidence
+
 This first public package uses a new publisher-prefixed identity. Evidence from the earlier local `local-models` prototype is labeled separately; it is not represented as clean stock-host acceptance of the public package.
 
 ## Public-package checks

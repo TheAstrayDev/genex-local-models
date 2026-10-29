@@ -8,6 +8,10 @@ from pathlib import Path
 import sys
 
 MODEL = "hunyuan3d-2-turbo"
+SHAPE_MODELS = {
+    MODEL: ("Hunyuan3D-2", "hunyuan3d-dit-v2-0-turbo"),
+    "hunyuan3d-2-mini-turbo": ("Hunyuan3D-2mini", "hunyuan3d-dit-v2-mini-turbo"),
+}
 PROFILES = {
     "balanced": {"octree": 384, "faces": 50000, "view": 512, "render": 1024, "texture": 1024},
     "high": {"octree": 512, "faces": 200000, "view": 512, "render": 2048, "texture": 2048},
@@ -18,6 +22,14 @@ def quality_profile(quality):
     if not isinstance(quality, str) or quality not in PROFILES:
         raise ValueError("Choose a fixed Hunyuan quality profile: balanced or high")
     return dict(PROFILES[quality])
+
+
+def shape_checkpoint(root, model=MODEL):
+    """Only reviewed local checkpoint folders; no arbitrary paths or model code."""
+    if not isinstance(model, str) or model not in SHAPE_MODELS:
+        raise ValueError("Unsupported Hunyuan3D model")
+    folder, subfolder = SHAPE_MODELS[model]
+    return root / "models/tencent" / folder, subfolder
 
 
 def preserve_surface_normals(source, textured):
@@ -35,7 +47,8 @@ def preserve_surface_normals(source, textured):
 
 
 def command(root, request, output, image, phase="shape", mesh=None):
-    if request.get("model") != MODEL or set(request) not in ({"model", "seed"}, {"model", "seed", "quality"}) or not image:
+    shape_checkpoint(root, request.get("model"))
+    if set(request) not in ({"model", "seed"}, {"model", "seed", "quality"}) or not image:
         raise ValueError("Unsupported Hunyuan3D request")
     if type(request["seed"]) is not int or not 0 <= request["seed"] <= 2147483647:
         raise ValueError("Invalid 3D seed")
@@ -45,7 +58,9 @@ def command(root, request, output, image, phase="shape", mesh=None):
         raise ValueError("Expected one fixed shape or paint job")
     args = [str(root / "python.exe"), str(Path(__file__).resolve()), phase,
             str(mesh if phase == "paint" else image), str(output), str(request["seed"]), quality]
-    return args + ([str(image)] if phase == "paint" else [])
+    if phase == "paint":
+        return args + [str(image)]
+    return args + ([request["model"]] if request["model"] != MODEL else [])
 
 
 def setup(root, scratch):
@@ -119,8 +134,9 @@ def prepare_reference(root, image):
     return image
 
 
-def shape(root, scratch, image_path, output, seed, quality="balanced"):
+def shape(root, scratch, image_path, output, seed, quality="balanced", model=MODEL):
     profile = quality_profile(quality)
+    checkpoint, subfolder = shape_checkpoint(root, model)
     print(json.dumps({"quality": quality, "profile": profile}), flush=True)
     print("Hunyuan3D: preparing an isolated object reference", flush=True)
     from PIL import Image
@@ -138,7 +154,7 @@ def shape(root, scratch, image_path, output, seed, quality="balanced"):
 
     torch.set_num_threads(6)
     pipe = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(
-        str(root / "models/tencent/Hunyuan3D-2"), subfolder="hunyuan3d-dit-v2-0-turbo", device="cpu", use_safetensors=True)
+        str(checkpoint), subfolder=subfolder, device="cpu", use_safetensors=True)
     pipe.enable_flashvdm(mc_algo="mc", replace_vae=False)
     # Match the portable pack's mmgp integration while avoiding pinned RAM on a 32 GB PC.
     pipe.__class__._execution_device = property(lambda self: "cuda")
@@ -193,9 +209,11 @@ def main():
         raise ValueError("Expected a fixed generation phase, input, output and seed")
     phase, image, output, seed = sys.argv[1:5]
     quality = sys.argv[5]
-    if len(sys.argv) != (7 if phase == "paint" else 6):
+    if phase == "paint" and len(sys.argv) != 7:
         raise ValueError("Paint requires its retained reference image; shape has only one input")
     quality_profile(quality)
+    model = sys.argv[6] if phase == "shape" and len(sys.argv) == 7 else MODEL
+    shape_checkpoint(Path("."), model)
     if not seed.isdecimal() or not 0 <= int(seed) <= 2147483647:
         raise ValueError("Invalid seed")
     root = Path(sys.executable).resolve().parent
@@ -203,7 +221,7 @@ def main():
     scratch.mkdir(exist_ok=True)
     setup(root, scratch)
     if phase == "shape":
-        shape(root, scratch, image, output, int(seed), quality)
+        shape(root, scratch, image, output, int(seed), quality, model)
     else:
         paint(root, scratch, image, output, int(seed), quality, sys.argv[6])
 

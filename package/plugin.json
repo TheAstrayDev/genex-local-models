@@ -1,10 +1,10 @@
 {
   "apiVersion": 3,
   "id": "theastraydev-local-models",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "name": "Local Models",
   "publisher": "TheAstrayDev",
-  "description": "Experimental local images/audio: Windows x64 Vulkan and Apple Silicon Metal. Hunyuan3D: Windows x64 NVIDIA CUDA, 12 GB VRAM / 32 GB RAM tested, separate setup; shape and paint jobs capped at five minutes each. Slower devices may time out.",
+  "description": "Choose local models for images, textures, sound, music and 3D. Qwen Turbo Q4/Q8, Stable Audio and Hunyuan3D Turbo/Mini. Experimental platform profiles; 3D needs separate Windows CUDA setup. Each native job is capped at five minutes. New Q8/Mini inference is not yet verified.",
   "icon": "icon.svg",
   "backend": "backend.mjs",
   "capabilities": [
@@ -293,7 +293,26 @@
       "placement": "settings"
     }
   ],
-  "settings": [],
+  "settings": [
+    {
+      "key": "qwen-python",
+      "label": "qwen Python program (optional full path to a prepared runtime)",
+      "type": "string",
+      "default": ""
+    },
+    {
+      "key": "audio-python",
+      "label": "audio Python program (optional full path to a prepared runtime)",
+      "type": "string",
+      "default": ""
+    },
+    {
+      "key": "hunyuan-python",
+      "label": "hunyuan Python program (optional full path to a prepared runtime)",
+      "type": "string",
+      "default": ""
+    }
+  ],
   "actions": [
     {
       "name": "status",
@@ -310,7 +329,7 @@
     {
       "name": "install",
       "label": "Install model",
-      "confirmation": "Download the selected public model and its verified runtime (up to 11 GB). Its original model license applies. No account or token is sent."
+      "confirmation": "Download the selected public model and its verified runtime? The review shows the size and folders. Original model licenses apply. No account or token is sent."
     },
     {
       "name": "cancel-install",
@@ -319,15 +338,22 @@
     {
       "name": "restore-assets",
       "label": "Restore generated assets to this game"
+    },
+    {
+      "name": "activity",
+      "label": "Generation activity"
     }
   ],
   "nativeRuntimes": [
     {
       "id": "qwen",
-      "label": "Qwen SSD Python",
+      "label": "qwen local runtime",
       "candidates": [
+        "setting:qwen-python",
         "home:Genex-Local-Models/qwen/python.exe",
-        "home:Genex-Local-Models/qwen.app/Contents/bin/python3.11"
+        "storage:runtimes/qwen/python.exe",
+        "home:Genex-Local-Models/qwen.app/Contents/bin/python3.11",
+        "storage:runtimes/qwen.app/Contents/bin/python3.11"
       ],
       "version": {
         "args": [
@@ -338,18 +364,19 @@
       },
       "platforms": [
         {
-          "platform": "win32",
-          "arch": "x64",
+          "platform": "win32-x64",
           "candidates": [
+            "setting:qwen-python",
             "home:Genex-Local-Models/qwen/python.exe",
-            "D:/Genex-Local-Models/qwen/python.exe"
+            "storage:runtimes/qwen/python.exe"
           ]
         },
         {
-          "platform": "darwin",
-          "arch": "arm64",
+          "platform": "darwin-arm64",
           "candidates": [
-            "home:Genex-Local-Models/qwen.app/Contents/bin/python3.11"
+            "setting:qwen-python",
+            "home:Genex-Local-Models/qwen.app/Contents/bin/python3.11",
+            "storage:runtimes/qwen.app/Contents/bin/python3.11"
           ]
         }
       ]
@@ -358,8 +385,11 @@
       "id": "audio",
       "label": "audio local runtime",
       "candidates": [
+        "setting:audio-python",
         "home:Genex-Local-Models/audio/python.exe",
-        "home:Genex-Local-Models/audio.app/Contents/bin/python3.11"
+        "storage:runtimes/audio/python.exe",
+        "home:Genex-Local-Models/audio.app/Contents/bin/python3.11",
+        "storage:runtimes/audio.app/Contents/bin/python3.11"
       ],
       "version": {
         "args": [
@@ -370,18 +400,19 @@
       },
       "platforms": [
         {
-          "platform": "win32",
-          "arch": "x64",
+          "platform": "win32-x64",
           "candidates": [
+            "setting:audio-python",
             "home:Genex-Local-Models/audio/python.exe",
-            "D:/Genex-Local-Models/audio/python.exe"
+            "storage:runtimes/audio/python.exe"
           ]
         },
         {
-          "platform": "darwin",
-          "arch": "arm64",
+          "platform": "darwin-arm64",
           "candidates": [
-            "home:Genex-Local-Models/audio.app/Contents/bin/python3.11"
+            "setting:audio-python",
+            "home:Genex-Local-Models/audio.app/Contents/bin/python3.11",
+            "storage:runtimes/audio.app/Contents/bin/python3.11"
           ]
         }
       ]
@@ -390,7 +421,9 @@
       "id": "hunyuan",
       "label": "hunyuan local runtime",
       "candidates": [
-        "home:Genex-Local-Models/hunyuan/python.exe"
+        "setting:hunyuan-python",
+        "home:Genex-Local-Models/hunyuan/python.exe",
+        "storage:runtimes/hunyuan/python.exe"
       ],
       "version": {
         "args": [
@@ -401,11 +434,11 @@
       },
       "platforms": [
         {
-          "platform": "win32",
-          "arch": "x64",
+          "platform": "win32-x64",
           "candidates": [
+            "setting:hunyuan-python",
             "home:Genex-Local-Models/hunyuan/python.exe",
-            "D:/Genex-Local-Models/hunyuan/python.exe"
+            "storage:runtimes/hunyuan/python.exe"
           ]
         }
       ]

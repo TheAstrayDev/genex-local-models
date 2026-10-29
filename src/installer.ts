@@ -38,6 +38,23 @@ async function directory(root:string,relative:string){
 async function sha(file:string,signal:AbortSignal){
  const hash=createHash('sha256');for await(const bytes of createReadStream(file)){signal.throwIfAborted();hash.update(bytes);}return hash.digest('hex');
 }
+/** Reuse an already verified managed weight, never an arbitrary path or a link. */
+export async function installedWeight(root:string,modelDirectory:string,asset:Asset,signal:AbortSignal){
+ const target=child(root,path.join('models',modelDirectory,asset.name));
+ try{
+  let current=path.resolve(root);
+  const rootInfo=await lstat(current);
+  if(rootInfo.isSymbolicLink()||!rootInfo.isDirectory())throw Error('Installed weight contains a link or non-file.');
+  const segments=path.relative(current,target).split(path.sep);
+  for(const [index,segment] of segments.entries()){
+   current=path.join(current,segment);
+   const info=await lstat(current);
+   if(info.isSymbolicLink()||(index===segments.length-1?!info.isFile():!info.isDirectory()))throw Error('Installed weight contains a link or non-file.');
+  }
+  if((await lstat(target)).size!==asset.size||await sha(target,signal)!==asset.sha256)throw Error('Existing different file preserved: '+asset.name);
+  return target;
+ }catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')return undefined;throw error;}
+}
 export async function downloadAsset(root:string,asset:Asset,signal:AbortSignal,onProgress:(bytes:number)=>void=()=>{},get:typeof fetch=fetch){
  await directory(root,asset.folder);
  const target=child(root,path.join(asset.folder,asset.name)),partial=target+'.part';
@@ -159,7 +176,7 @@ export function startInstallation(model:string){
  return installation();
 }
 async function install(model:string,signal:AbortSignal){
- const host=currentHost(),family=model==='qwen-image-2.1-turbo'?'qwen':'audio';
+ const host=currentHost(),family=installationPlan(model,host).family;
  const bundle=path.join(os.homedir(),'Genex-Local-Models',family+(host.platform==='darwin'?'.app':''));
  const root=host.platform==='darwin'?path.join(bundle,'Contents'):bundle;
  let legacyCuda=false;
@@ -178,7 +195,9 @@ async function install(model:string,signal:AbortSignal){
   let complete=0;const files=new Map<string,string>();
   for(const asset of [python,...assets]){
    progress.phase='downloading and verifying';progress.file=asset.name;
-   files.set(asset.name,await downloadAsset(base,asset,signal,bytes=>{progress.completed=complete+bytes;}));complete+=asset.size;
+   const existing=asset!==python&&asset.folder!=='downloads'?await installedWeight(root,plan.modelDirectory,asset,signal):undefined;
+   files.set(asset.name,existing??await downloadAsset(base,asset,signal,bytes=>{progress.completed=complete+bytes;}));complete+=asset.size;
+   progress.completed=complete;
   }
   // Keep managed runtimes under the user's home. CUDA and Vulkan audio builds
   // both need the reviewed LPAC path fix; moving to C: alone is insufficient.
@@ -189,7 +208,7 @@ async function install(model:string,signal:AbortSignal){
   const stagedRuntime=await prepareRuntime(plan,files,stage,signal);
   const copies:{source:string;destination:string}[]=[];
   for(const file of await regularFiles(stagedRuntime))copies.push({source:file,destination:path.join(root,path.relative(stagedRuntime,file))});
-  for(const asset of assets.filter(asset=>asset.folder!=='downloads'))copies.push({source:files.get(asset.name)!,destination:path.join(root,'models',model,asset.name)});
+  for(const asset of assets.filter(asset=>asset.folder!=='downloads'))copies.push({source:files.get(asset.name)!,destination:path.join(root,'models',plan.modelDirectory,asset.name)});
   let needed=0;
   for(const file of copies){
    try{const info=await lstat(file.destination);if(!info.isFile()||info.size!==(await lstat(file.source)).size||await sha(file.destination,signal)!==await sha(file.source,signal))throw Error('Existing runtime differs; preserved for inspection.');}
@@ -206,7 +225,7 @@ async function install(model:string,signal:AbortSignal){
    await cp(file.source,partial,{errorOnExist:true,force:false});await rename(partial,file.destination);
   }
   for(const asset of assets.filter(asset=>asset.folder!=='downloads')){
-   const destination=path.join(root,'models',model,asset.name);
+   const destination=path.join(root,'models',plan.modelDirectory,asset.name);
    if(await sha(destination,signal)!==asset.sha256)throw Error('Installed model digest differs; not activated.');
   }
   if(family==='qwen'){

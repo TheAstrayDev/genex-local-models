@@ -1,5 +1,15 @@
 # Host compatibility
 
+## Source update 0.1.14
+
+The saved task assignments now include Qwen Turbo Q4/Q8 and Hunyuan3D Turbo/Mini Turbo. Existing choices and Off remain valid. Q8 and Mini have workflow/command tests, not real GPU acceptance or measured five-minute completion. The Mini shape checkpoint requires separate manual setup and uses the existing Turbo painter. A model selected for a staged 3D request remains pinned across later default changes.
+
+The accompanying Genex host change retains and selects `nativeRuntimes[].platforms` using the same platform names as native installs. Each runtime offers a declared `setting:` for a user-selected Python program, plus `storage:` and `home:` candidates. Earlier hosts use the portable candidate fallback, including these settings. Plugin downloads currently install under the home folder; storage candidates discover prepared runtimes rather than changing the install destination. Sandbox grants, five-minute job limits, cancellation and project delivery are unchanged. The catalog submission remains draft.
+
+An existing runtime previously discovered only via the hard-coded `D:` candidate requires its Python program's full path to be entered in the matching plugin Settings field. The update does not move or delete that runtime. Readiness and sandbox checks still apply.
+
+## Earlier 0.1.13 acceptance
+
 Version 0.1.13 follows the maintainer five-minute policy in [#170](https://github.com/genex-games/genex-desktop/issues/170#issuecomment-6233006335). Image, audio, model-shape and model-paint each declare 300,000 ms. Shape and paint use separate native jobs and outer tool calls. The completed shape and prepared reference are retained before paint starts; incomplete painting is reported with saved shape URLs. No host timeout extension is needed to validate or pack this release.
 
 The stock native-manifest validator and plugin:doctor accept the package with the 300,000 ms limit unchanged. This removes the previous declaration rejection, without establishing released-host inference on every platform. Long background jobs, explicit maximum-duration approval and asynchronous start/status/result remain separate host work in [#184](https://github.com/genex-games/genex-desktop/issues/184).

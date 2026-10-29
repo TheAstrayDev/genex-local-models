@@ -1,4 +1,352 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Local Models</title><style>:root{color-scheme:dark;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#d6d6d6;background:#101010;--surface:#141414;--border:#292929;--muted:#929292;--accent:#6974cc}*{box-sizing:border-box}body{margin:0;padding:28px 32px}main{max-width:1000px;margin:auto}h1,h2,h3,p{margin:0}h1{font-size:30px;letter-spacing:-1px;font-weight:500}h2{font-size:17px;font-weight:500}h3{font-size:16px;font-weight:500}p{line-height:1.6}header{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:24px}header p{color:var(--muted);margin-top:8px}.execution{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:16px 18px}.execution strong{font-weight:500}.execution>span:last-child{margin-left:auto;color:var(--muted)}.dot{width:7px;height:7px;border-radius:50%;background:#888}.dot.working{background:var(--accent)}section{margin-top:32px}.section-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:16px}.section-heading>span{font-size:12px;color:var(--muted)}.routes{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;margin-bottom:16px}.route{display:grid;gap:8px}select,button{font:inherit;color:inherit;border:1px solid var(--border);border-radius:10px;background:#1b1b1b;padding:10px 12px}select{width:100%;text-overflow:ellipsis}button{cursor:pointer;white-space:nowrap}button:hover{background:#242424}button:disabled{opacity:.5;cursor:default}.primary{background:#4757b7;border-color:#4757b7}.primary:hover{background:#5263c9}a{color:#c1c5ee;text-decoration:none}a:hover{text-decoration:underline}button:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:3px}.models{display:grid;gap:12px}article{padding:18px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}.model-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}.badge{font-size:12px;color:#bbb;padding:5px 8px;border:1px solid var(--border);border-radius:7px}.badge.ready{color:#bdc3f0;background:#1d2034;border-color:#303751}article>p{color:var(--muted);font-size:13px}.reason{margin-top:7px;max-width:74ch}.model-footer{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-top:16px;font-size:12px;color:var(--muted)}.found,.history>div{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid var(--border)}.history strong,.found strong{font-weight:400}.history span,.found span{font-size:12px;color:var(--muted)}#discovery>p{font-size:13px;color:var(--muted);margin-top:16px}.empty{padding:20px 0;color:var(--muted)}footer{border-top:1px solid var(--border);margin-top:32px;padding-top:20px;color:var(--muted);font-size:12px}footer p+p{margin-top:10px}code{font:11px Consolas,monospace}#message{margin-top:18px}.error{color:#ff8888}::selection{background:#4757b7;color:white}@media(max-width:640px){body{padding:20px 16px}.routes{grid-template-columns:1fr}.execution{flex-wrap:wrap}.execution>span:last-child{width:100%;margin-left:17px}.model-footer{align-items:flex-start;flex-direction:column}.section-heading>span{display:none}}
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Local Models</title><style>:root {
+	color-scheme: dark;
+	font-family: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+	font-size: 14px;
+	color: var(--foreground);
+	background: var(--background);
+	--background: #111111;
+	--foreground: #eeeeee;
+	--accent: #8f9bff;
+	--surface: color-mix(in srgb, var(--foreground) 4%, var(--background));
+	--control: color-mix(in srgb, var(--foreground) 7%, var(--background));
+	--hover: color-mix(in srgb, var(--foreground) 11%, var(--background));
+	--border: color-mix(in srgb, var(--foreground) 13%, var(--background));
+	--muted: color-mix(in srgb, var(--foreground) 64%, var(--background));
+}
+* {
+	box-sizing: border-box;
+}
+body {
+	margin: 0;
+	padding: 24px 28px;
+}
+main {
+	max-width: 760px;
+	margin-inline: auto;
+}
+h1,
+h2,
+h3,
+p {
+	margin: 0;
+}
+h1 {
+	font-size: 24px;
+	line-height: 1.3;
+	font-weight: 600;
+	letter-spacing: -0.5px;
+}
+h2 {
+	font-size: 16px;
+	line-height: 1.4;
+	font-weight: 600;
+}
+h3 {
+	font-size: 14px;
+	line-height: 1.5;
+	font-weight: 500;
+}
+p {
+	line-height: 1.5;
+}
+header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	margin-block-end: 20px;
+}
+header p {
+	margin-block-start: 6px;
+	color: var(--muted);
+}
+button,
+select {
+	color: inherit;
+	font: inherit;
+	border: 0;
+	background: var(--control);
+	border-radius: 8px;
+	min-height: 34px;
+	padding: 7px 12px;
+}
+button {
+	cursor: pointer;
+	font-size: 13px;
+	white-space: nowrap;
+}
+button:hover {
+	background: var(--hover);
+}
+button:disabled {
+	cursor: default;
+	opacity: 0.45;
+}
+button.primary {
+	color: var(--foreground);
+	background: color-mix(in srgb, var(--accent) 24%, var(--background));
+}
+button.primary:hover {
+	background: color-mix(in srgb, var(--accent) 35%, var(--background));
+}
+button.quiet {
+	background: transparent;
+}
+button.quiet:hover {
+	background: var(--hover);
+}
+select {
+	width: 100%;
+	min-width: 0;
+	cursor: pointer;
+	text-overflow: ellipsis;
+	padding-inline-end: 28px;
+}
+select:disabled {
+	cursor: default;
+}
+button:focus-visible,
+select:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 3px;
+}
+[hidden] {
+	display: none !important;
+}
+.execution {
+	display: flex;
+	align-items: center;
+	gap: 9px;
+	color: var(--muted);
+	font-size: 12px;
+	min-height: 32px;
+	margin-block-end: 28px;
+}
+.execution-hint {
+	margin-inline-start: auto;
+}
+.dot {
+	width: 6px;
+	height: 6px;
+	flex: 0 0 auto;
+	border-radius: 50%;
+	background: var(--muted);
+}
+.dot.working {
+	background: var(--accent);
+}
+.section-heading {
+	margin-block-end: 6px;
+}
+.routes {
+	display: grid;
+}
+.route {
+	display: grid;
+	grid-template-columns: minmax(140px, 1fr) minmax(220px, 48%);
+	gap: 20px;
+	align-items: center;
+	padding-block: 16px;
+}
+.route + .route {
+	border-block-start: 1px solid var(--border);
+}
+.route-label label {
+	display: inline-block;
+	font-weight: 500;
+	margin-block-end: 5px;
+}
+.route-label p {
+	max-width: 38ch;
+	color: var(--muted);
+	font-size: 12px;
+}
+.save-row {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin-block-start: 14px;
+}
+.save-hint {
+	color: var(--muted);
+	font-size: 12px;
+}
+#message {
+	min-height: 21px;
+	margin-block: 12px 18px;
+	font-size: 13px;
+}
+.error {
+	color: var(--foreground);
+}
+.error::before {
+	content: "! ";
+	color: var(--accent);
+}
+.section-disclosure {
+	border-block-start: 1px solid var(--border);
+}
+summary {
+	cursor: pointer;
+	user-select: none;
+}
+.section-disclosure > summary {
+	padding-block: 17px;
+	font-size: 14px;
+	font-weight: 500;
+}
+.section-disclosure > summary > span {
+	margin-inline-start: 8px;
+	font-weight: 400;
+	font-size: 12px;
+	color: var(--muted);
+}
+.disclosure-body {
+	padding-block: 0 22px;
+}
+.disclosure-body > p {
+	color: var(--muted);
+	font-size: 13px;
+	margin-block-end: 14px;
+}
+.models {
+	display: grid;
+	gap: 0;
+	margin-block-start: 16px;
+}
+article {
+	padding-block: 16px;
+}
+article + article {
+	border-block-start: 1px solid var(--border);
+}
+.model-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 16px;
+}
+.model-row p {
+	margin-block-start: 4px;
+	color: var(--muted);
+	font-size: 12px;
+}
+.model-details {
+	margin-block-start: 10px;
+	color: var(--muted);
+	font-size: 12px;
+}
+.model-details > div {
+	padding-block-start: 10px;
+}
+.model-details p + p {
+	margin-block-start: 8px;
+}
+a {
+	color: var(--foreground);
+	text-underline-offset: 3px;
+	cursor: pointer;
+}
+.model-details a {
+	display: inline-block;
+	margin-block-start: 10px;
+}
+.storage-details {
+	font-size: 13px;
+	color: var(--muted);
+	margin-block-start: 16px;
+}
+.storage-details > div {
+	padding-block-start: 12px;
+}
+.storage-details p {
+	margin-block-end: 10px;
+	overflow-wrap: anywhere;
+}
+code {
+	font-family: "Geist Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+	font-size: 11px;
+}
+.path {
+	overflow-wrap: anywhere;
+}
+.history > div,
+.found {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+	padding-block: 10px;
+	font-size: 12px;
+}
+.history strong {
+	font-weight: 500;
+}
+.history span,
+.found span {
+	color: var(--muted);
+}
+#discovery p {
+	margin-block-start: 12px;
+}
+#installation:not(:empty) {
+	padding: 14px 16px;
+	margin-block: 14px;
+	background: var(--surface);
+	border-radius: 10px;
+	font-size: 12px;
+}
+#installation progress {
+	display: block;
+	width: 100%;
+	margin-block: 10px 6px;
+	accent-color: var(--accent);
+}
+#installation button {
+	display: inline-block;
+	margin-inline-start: 12px;
+}
+footer {
+	margin-block-start: 24px;
+	color: var(--muted);
+	font-size: 12px;
+}
+.loading {
+	color: var(--muted);
+}
+::selection {
+	background: var(--accent);
+	color: var(--background);
+}
+@media (max-width: 590px) {
+	body {
+		padding: 20px 18px;
+	}
+	.route {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 10px;
+		padding-block: 15px;
+	}
+	.route-label p {
+		max-width: none;
+	}
+	.execution {
+		flex-wrap: wrap;
+	}
+	.execution-hint {
+		margin-inline-start: 15px;
+	}
+	.history > div {
+		flex-wrap: wrap;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	* {
+		scroll-behavior: auto;
+	}
+}
 </style><main id="root"></main><script>// Include this in a prebuilt panel. No credential values or arbitrary IPC are exposed.
 const waiting = new Map();
 const contextListeners = new Set();
@@ -56,122 +404,303 @@ window.addEventListener("pagehide", () => {
 
   // src/panel.ts
   var root = document.getElementById("root");
+  if (!root) throw Error("Local Models panel is missing its root.");
+  var panel = root;
+  var labels = {
+    image: "Images",
+    texture: "Textures",
+    sfx: "Sound effects",
+    music: "Music",
+    model: "3D objects"
+  };
   var snapshot;
+  var draft;
   var busy = false;
-  var labels = { image: "Images", texture: "Textures", sfx: "Sound effects", music: "Music", model: "3D objects" };
-  var escape = (text) => String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  var polling = false;
+  var readVersion = 0;
+  var themeVersion = 0;
+  var notice = { text: "", error: false };
+  var escape = (value) => String(value ?? "").replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c
+  );
+  var dirty = () => Boolean(
+    snapshot && draft && routes.some((route) => draft?.[route] !== snapshot?.assignments[route])
+  );
   function message(text, error = false) {
-    const el = document.getElementById("message");
-    el.textContent = text;
-    el.classList.toggle("error", error);
+    notice = { text, error };
+    const box = document.getElementById("message");
+    if (!box) return;
+    box.setAttribute("role", error ? "alert" : "status");
+    box.classList.toggle("error", error);
+    box.textContent = text;
+  }
+  function selectedModel(route) {
+    return snapshot?.models.find((model) => model.id === draft?.[route]);
+  }
+  function modelState(model) {
+    if (!model.supported) return "Unavailable here";
+    if (model.state === "working") return "Working";
+    return model.ready ? "Installed" : "Not installed";
+  }
+  function routeHint(route) {
+    const model = selectedModel(route);
+    if (!draft?.[route]) return "Your AI will not generate this type locally.";
+    if (!model)
+      return "Saved model is unavailable. Choose another model or turn this task off.";
+    if (!model.supported)
+      return model.requirement || "This model cannot run on this computer.";
+    if (!model.ready)
+      return model.canInstall ? "Install this model below before asking your AI to use it." : "Needs separate local setup. Open its model details below.";
+    return model.experimental ? "Experimental model. Used for new requests after saving." : "Used automatically when your AI needs this type of asset.";
+  }
+  function routeRow(route) {
+    const selected = draft?.[route];
+    const models = snapshot?.models.filter((model) => model.routes.includes(route)) ?? [];
+    const missing = selected && !models.some((model) => model.id === selected);
+    return `<div class="route"><div class="route-label"><label for="route-${route}">${labels[route]}</label><p id="hint-${route}" data-route-hint="${route}">${escape(routeHint(route))}</p></div><select id="route-${route}" data-route="${route}" aria-label="${labels[route]} model" aria-describedby="hint-${route}"><option value="" ${selected == null ? "selected" : ""}>Off</option>${missing ? `<option value="${escape(selected)}" selected disabled>Unavailable saved model</option>` : ""}${models.map((model) => `<option value="${escape(model.id)}" ${selected === model.id ? "selected" : ""} ${!model.supported || !model.ready ? "disabled" : ""}>${escape(model.name)}${model.experimental ? " \xB7 Experimental" : ""}${!model.supported ? " \xB7 Unavailable here" : !model.ready ? " \xB7 Not installed" : ""}</option>`).join("")}</select></div>`;
+  }
+  function modelRow(model) {
+    return `<article data-model="${escape(model.id)}"><div class="model-row"><div><h3>${escape(model.name)}</h3><p>${escape(modelState(model))}${model.experimental ? " \xB7 Experimental" : ""}</p></div>${!model.ready && model.supported && model.canInstall ? `<button type="button" data-install="${escape(model.id)}">Install</button>` : ""}</div><details class="model-details"><summary>Model details</summary><div><p>${escape(model.detail)}</p><p>${escape(model.requirement)}</p>${!model.ready ? `<p>${escape(model.reason)}</p>` : ""}<p>${escape(model.license)}${model.bytes ? ` \xB7 ${(model.bytes / 1e9).toFixed(1)} GB of model files` : ""}</p>${model.runtimeRoot ? `<p class="path">Runtime: <code>${escape(model.runtimeRoot)}</code></p>` : ""}<a href="${escape(model.url)}" target="_blank" rel="noreferrer">About ${escape(model.name)} \u2197</a></div></details></article>`;
+  }
+  function execution() {
+    if (!snapshot) return "";
+    const state = snapshot.execution;
+    const model = snapshot.models.find((entry) => entry.id === state.model);
+    const text = state.active ? `Working${model ? ` \xB7 ${model.name}` : ""}` : snapshot.models.some((entry) => entry.ready) ? "Ready for AI tasks" : "Install a model to begin";
+    return `<div id="execution-state" class="execution" role="status"><span class="dot ${state.active ? "working" : ""}" aria-hidden="true"></span><span>${escape(text)}</span><span class="execution-hint">One model at a time</span></div>`;
   }
   function render() {
-    const state = snapshot.execution;
-    root.innerHTML = `<header><div><h1>Local Models</h1><p>One task. One model. Memory back when it finishes.</p></div><button id="refresh">Refresh</button></header>
- <div class="execution"><span class="dot ${state.active ? "working" : ""}"></span><strong>${state.active ? "Working on one task" : "Models asleep"}</strong><span>${state.pending > 1 ? `${state.pending - 1} waiting` : "Only one worker can run at a time"}</span></div>
- <section><div class="section-heading"><h2>Choose a model for each task</h2><span>Applies to new requests</span></div>
- <p class="reason">${escape(snapshot.host.platform)} / ${escape(snapshot.host.arch)} \xB7 New Windows installs use Vulkan; Apple Silicon uses Metal. GPU memory and driver support are required.</p><div class="routes">${routes.map((route) => `<label class="route"><span>${labels[route]}</span><select data-route="${route}" aria-label="${labels[route]} model"><option value="">Not assigned</option>${snapshot.models.filter((model) => model.routes.includes(route)).map((model) => `<option value="${model.id}" ${snapshot.assignments[route] === model.id ? "selected" : ""} ${model.supported ? "" : "disabled"}>${escape(model.name)}${model.ready ? "" : " \xB7 unavailable"}</option>`).join("")}</select></label>`).join("")}</div>
- <button id="save" class="primary">Save assignments</button></section>
- <section><div class="section-heading"><h2>On this computer</h2><button id="discover">Find existing models</button></div>
- <div id="installation" role="status" aria-live="polite"></div><p class="reason">Download cache: <code>${escape(snapshot.downloadCache)}</code><br>Working models: <code>${escape(snapshot.modelDirectory)}</code>. macOS runtimes use separate .app/Contents folders inside it. Installing is a separate confirmed action; assignment alone downloads nothing.</p>
- <div class="models">${snapshot.models.map((model) => `<article><div class="model-heading"><h3>${escape(model.name)}</h3><span class="badge ${model.ready ? "ready" : ""}">${model.state === "unsupported" ? "Unavailable here" : model.state === "working" ? "Working" : model.ready ? "Sleeping" : model.gate ? "Access required" : "Not installed"}</span></div><p>${escape(model.detail)}</p><p class="reason">${escape(model.reason)}</p><p class="reason">${escape(model.requirement)}</p>${model.runtimeRoot ? `<p class="reason">Runtime: <code>${escape(model.runtimeRoot)}</code></p>` : ""}<div class="model-footer"><span>${escape(model.license)}${model.bytes ? ` \xB7 ${(model.bytes / 1e9).toFixed(1)} GB` : ""}${model.experimental ? " \xB7 Experimental" : ""}</span><a href="${escape(model.url)}" target="_blank" rel="noreferrer">Model details \u2197</a></div></article>`).join("")}</div><div id="discovery"></div></section>
- <section><div class="section-heading"><h2>Saved assets</h2><button id="restore-assets" ${snapshot.project ? "" : "disabled"}>Restore assets</button></div><p>${snapshot.project ? `Restore retained results into <strong>${escape(snapshot.project)}</strong> and its Genex Assets panel. No models run; existing changed files are preserved.` : "Open a game, then open this plugin to restore its saved assets."}</p></section>
- <section><div class="section-heading"><h2>Recent generations</h2><span>Measured on this computer</span></div>${snapshot.recent.length ? `<div class="history">${snapshot.recent.slice(0, 5).map((job) => `<div><strong>${escape(labels[job.task] ?? job.task)}</strong><span>${escape(job.model)}</span><span>${Number(job.seconds).toFixed(1)}s \xB7 asleep</span></div>`).join("")}</div>` : '<p class="empty">Ask Studio for an asset after assigning an installed model. Timing appears after the first completed job.</p>'}</section>
- <footer><p>Weights stay on disk. Each request starts a fresh process; its model memory is released when the process exits. Cold starts depend on disk speed and model size.</p><p>Local tools: <code>theastraydev-local-models__generate-image</code>, <code>theastraydev-local-models__generate-audio</code>, <code>theastraydev-local-models__generate-model</code>. No paid fallback. Animation is not supported by these models.</p></footer><p id="message" role="status" aria-live="polite"></p>`;
-    document.getElementById("refresh").onclick = () => void refresh();
-    document.getElementById("restore-assets").onclick = async () => {
-      const button = document.getElementById("restore-assets");
-      button.disabled = true;
-      try {
+    if (!snapshot || !draft) return;
+    const empty = !snapshot.models.some((model) => model.ready);
+    const changes = dirty();
+    panel.innerHTML = `<header><div><h1>Local Models</h1><p>Choose the models your AI uses.</p></div><button type="button" id="refresh" class="quiet">Refresh</button></header>${execution()}
+  <form id="assignments"><section class="assignment-section" aria-labelledby="choose-models"><div class="section-heading"><h2 id="choose-models">Models for each task</h2></div><div class="routes">${routes.map(routeRow).join("")}</div><div class="save-row"><button id="save" type="submit" class="primary">Save changes</button><button id="discard" type="button" ${changes ? "" : "hidden"}>Discard changes</button><span class="save-hint">${changes ? "Unsaved changes" : "Applies to new requests"}</span></div></section></form>
+  <p id="message" role="${notice.error ? "alert" : "status"}" aria-live="polite" class="${notice.error ? "error" : ""}">${escape(notice.text)}</p>
+  <details id="manage-models" class="section-disclosure" ${empty || snapshot.installation.active ? "open" : ""}><summary>Manage models <span>${snapshot.models.filter((model) => model.ready).length} installed</span></summary><div class="disclosure-body"><p>Installing a model asks for confirmation. Choosing a model downloads nothing.</p><div id="installation" aria-live="polite"></div><div class="models">${snapshot.models.map(modelRow).join("")}</div><details class="storage-details"><summary>Storage and existing models</summary><div><p>Download cache: <code>${escape(snapshot.downloadCache)}</code></p><p>Working models: <code>${escape(snapshot.modelDirectory)}</code></p><button id="discover" type="button">Find existing models</button><div id="discovery"></div></div></details></div></details>
+  <details class="section-disclosure"><summary>Saved assets</summary><div class="disclosure-body"><p>${snapshot.project ? `Restore retained results to <strong data-analytics-mask>${escape(snapshot.project)}</strong> without generating them again.` : "Open a game to restore its saved assets."}</p><button id="restore-assets" type="button" ${snapshot.project ? "" : "disabled"}>Restore assets</button></div></details>
+  <details class="section-disclosure"><summary>Recent generations</summary><div class="disclosure-body">${snapshot.recent.length ? `<div class="history">${snapshot.recent.slice(0, 5).map(
+      (job) => `<div><strong>${escape(labels[job.task] ?? job.task)}</strong><span>${escape(snapshot?.models.find((model) => model.id === job.model)?.name ?? job.model)}</span><span>${Number(job.seconds).toFixed(1)} s</span></div>`
+    ).join("")}</div>` : "<p>No generations yet. Ask your AI for an asset after choosing an installed model.</p>"}</div></details>
+  <footer><p>Models run locally and release their memory after each task. Paid tools are never used as a fallback.</p></footer>`;
+    document.getElementById("refresh")?.addEventListener("click", () => void refresh());
+    document.getElementById("assignments")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void save();
+    });
+    document.getElementById("discard")?.addEventListener("click", () => {
+      if (snapshot) draft = { ...snapshot.assignments };
+      message("");
+      render();
+    });
+    for (const select of panel.querySelectorAll(
+      "[data-route]"
+    ))
+      select.addEventListener("change", () => {
+        const route = select.dataset.route;
+        if (draft) draft[route] = select.value || null;
+        const hint = document.getElementById(`hint-${route}`);
+        if (hint) hint.textContent = routeHint(route);
+        message("");
+        controls();
+      });
+    for (const button of panel.querySelectorAll(
+      "[data-install]"
+    ))
+      button.addEventListener(
+        "click",
+        () => void operation(async () => {
+          await studioPlugin.call("action", "install", {
+            model: button.dataset.install
+          });
+          await readSnapshot();
+        })
+      );
+    document.getElementById("restore-assets")?.addEventListener(
+      "click",
+      () => void operation(async () => {
         const result = await studioPlugin.call("action", "restore-assets", {});
-        message(`${result.restored.length} saved jobs restored to Genex Assets.${result.failed.length ? " " + result.failed.length + " could not be restored: " + result.failed.map((failure) => failure.error).join("; ") : ""}`, result.failed.length > 0);
-      } catch (error) {
-        message(String(error), true);
-      } finally {
-        button.disabled = !snapshot.project;
-      }
-    };
-    for (const model of snapshot.models.filter((model2) => !model2.ready && model2.canInstall)) {
-      const card = [...document.querySelectorAll("article")][snapshot.models.indexOf(model)];
-      const button = document.createElement("button");
-      button.textContent = "Install";
-      button.disabled = Boolean(snapshot.installation?.active);
-      button.onclick = async () => {
-        try {
-          await studioPlugin.call("action", "install", { model: model.id });
-          await refresh();
-        } catch (error) {
-          message(String(error), true);
-        }
-      };
-      card.append(button);
-    }
-    showInstallation();
-    document.getElementById("save").onclick = async () => {
-      if (busy) return;
-      busy = true;
-      try {
-        const selections = {};
-        document.querySelectorAll("[data-route]").forEach((select) => {
-          selections[select.dataset.route] = select.value || null;
-        });
-        await studioPlugin.call("action", "assign", selections);
-        snapshot.assignments = selections;
-        message("Assignments saved.");
-      } catch (error) {
-        message(String(error), true);
-      } finally {
-        busy = false;
-      }
-    };
-    document.getElementById("discover").onclick = async () => {
-      if (busy) return;
-      busy = true;
-      try {
+        message(
+          `${result.restored.length} saved jobs restored.${result.failed.length ? ` ${result.failed.length} could not be restored: ${result.failed.map((failure) => failure.error).join("; ")}` : ""}`,
+          result.failed.length > 0
+        );
+      })
+    );
+    document.getElementById("discover")?.addEventListener(
+      "click",
+      () => void operation(async () => {
         const result = await studioPlugin.call("action", "discover", {});
-        document.getElementById("discovery").innerHTML = `<p>${escape(result.note)}</p>${result.found.map((model) => `<div class="found"><strong>${escape(model.id)}</strong><span>Adapter not installed</span></div>`).join("") || "<p>No additional model caches found.</p>"}`;
-      } catch (error) {
-        message(String(error), true);
-      } finally {
-        busy = false;
-      }
-    };
+        const target = document.getElementById("discovery");
+        if (target)
+          target.innerHTML = `<p>${escape(result.note)}</p>${result.found.map((model) => `<div class="found">${escape(model.id)}<span>Adapter not installed</span></div>`).join("") || "<p>No additional model caches found.</p>"}`;
+      }, false)
+    );
+    showInstallation();
+    controls();
+  }
+  function controls() {
+    for (const element of panel.querySelectorAll("button, select"))
+      element.disabled = busy;
+    const save2 = document.getElementById("save");
+    if (save2) save2.disabled = busy || !dirty();
+    const discard = document.getElementById(
+      "discard"
+    );
+    if (discard) discard.hidden = !dirty();
+    const hint = panel.querySelector(".save-hint");
+    if (hint)
+      hint.textContent = busy ? "Please wait\u2026" : dirty() ? "Unsaved changes" : "Applies to new requests";
+    const restore = document.getElementById(
+      "restore-assets"
+    );
+    if (restore) restore.disabled = busy || !snapshot?.project;
+    for (const element of panel.querySelectorAll(
+      "[data-install]"
+    ))
+      element.disabled = busy || Boolean(snapshot?.installation.active);
+    panel.setAttribute("aria-busy", String(busy));
+  }
+  async function readSnapshot() {
+    const version = ++readVersion;
+    const next = await studioPlugin.call("action", "status", {});
+    if (version !== readVersion) return;
+    const keepDraft = dirty();
+    snapshot = next;
+    if (!keepDraft) draft = { ...next.assignments };
+  }
+  async function operation(work, redraw = true) {
+    if (busy) return;
+    busy = true;
+    readVersion++;
+    controls();
+    message("");
+    try {
+      await work();
+    } catch (error) {
+      message(String(error), true);
+    } finally {
+      busy = false;
+      if (redraw) render();
+      else controls();
+    }
+  }
+  async function save() {
+    if (!draft || !snapshot || !dirty()) return;
+    const changes = { ...draft };
+    await operation(async () => {
+      const saved = await studioPlugin.call(
+        "action",
+        "assign",
+        changes
+      );
+      if (snapshot) snapshot.assignments = saved;
+      draft = { ...saved };
+      message("Changes saved. Your AI will use these models for new requests.");
+    });
   }
   async function refresh() {
     if (busy) return;
     busy = true;
+    controls();
     try {
-      snapshot = await studioPlugin.call("action", "status", {});
+      await readSnapshot();
       render();
     } catch (error) {
-      root.innerHTML = `<h1>Local Models</h1><p class="error">${escape(error)}</p><button id="retry">Retry</button>`;
-      document.getElementById("retry").onclick = () => void refresh();
+      if (snapshot) message(String(error), true);
+      else {
+        panel.innerHTML = `<h1>Local Models</h1><p class="error" role="alert">${escape(error)}</p><button id="retry" type="button">Try again</button>`;
+        document.getElementById("retry")?.addEventListener("click", () => void refresh());
+      }
     } finally {
       busy = false;
+      controls();
     }
   }
-  void refresh();
   function showInstallation() {
-    const element = document.getElementById("installation"), setup = snapshot.installation;
+    const element = document.getElementById("installation"), setup = snapshot?.installation;
     if (!element || !setup) return;
     if (!setup.active) {
       element.textContent = setup.error ?? (setup.phase === "ready" ? "Model installed and verified." : "");
+      element.classList.toggle("error", Boolean(setup.error));
       return;
     }
-    element.innerHTML = `<p>${escape(setup.model)} \xB7 ${escape(setup.phase)} \xB7 ${(setup.completed / 1e9).toFixed(2)} / ${(setup.total / 1e9).toFixed(2)} GB</p><progress max="${setup.total}" value="${setup.completed}"></progress> <button id="cancel-install">Cancel download</button>`;
-    document.getElementById("cancel-install").onclick = async () => {
-      await studioPlugin.call("action", "cancel-install", {});
-    };
+    element.classList.remove("error");
+    if (!element.querySelector("progress")) {
+      element.innerHTML = '<p></p><progress aria-label="Model download"></progress><span></span><button type="button" id="cancel-install">Cancel download</button>';
+      document.getElementById("cancel-install")?.addEventListener(
+        "click",
+        () => void operation(async () => {
+          await studioPlugin.call("action", "cancel-install", {});
+          await readSnapshot();
+        })
+      );
+    }
+    const label = element.querySelector("p"), progress = element.querySelector("progress"), amount = element.querySelector("span");
+    if (label)
+      label.textContent = `${snapshot?.models.find((model) => model.id === setup.model)?.name ?? setup.model} \xB7 ${setup.phase}`;
+    if (progress) {
+      progress.max = Math.max(1, setup.total);
+      progress.value = setup.completed;
+    }
+    if (amount)
+      amount.textContent = `${(setup.completed / 1e9).toFixed(2)} / ${(setup.total / 1e9).toFixed(2)} GB`;
   }
-  setInterval(() => {
-    if (!snapshot?.installation?.active || document.hidden || busy) return;
-    void studioPlugin.call("action", "status", {}).then((value) => {
-      const wasActive = snapshot.installation.active;
-      snapshot = value;
+  async function applyTheme() {
+    const version = ++themeVersion;
+    try {
+      const context = await studioPlugin.call("context");
+      if (version !== themeVersion) return;
+      const theme = context?.theme;
+      if (!theme || ![theme.background, theme.foreground, theme.accent].every(
+        (value) => typeof value === "string" && CSS.supports("color", value)
+      ))
+        return;
+      const style = document.documentElement.style;
+      style.setProperty("--background", theme.background);
+      style.setProperty("--foreground", theme.foreground);
+      style.setProperty("--accent", theme.accent);
+      const canvas = document.createElement("canvas").getContext("2d");
+      if (canvas) {
+        canvas.fillStyle = theme.background;
+        const color = String(canvas.fillStyle);
+        const rgb = /^#([a-f\d]{6})$/i.exec(color);
+        if (rgb) {
+          const value = Number.parseInt(rgb[1] ?? "0", 16);
+          document.documentElement.style.colorScheme = (value >> 16) + (value >> 8 & 255) + (value & 255) > 384 ? "light" : "dark";
+        }
+      }
+    } catch {
+    }
+  }
+  void applyTheme();
+  studioPlugin.onContextChanged?.(() => void applyTheme());
+  panel.innerHTML = '<p class="loading" role="status" aria-busy="true">Loading models\u2026</p>';
+  void refresh();
+  var poll = setInterval(() => {
+    if (!snapshot || document.hidden || busy || polling) return;
+    polling = true;
+    const version = readVersion;
+    void studioPlugin.call("action", "activity", {}).then(async (activity) => {
+      if (!snapshot || busy || version !== readVersion) return;
+      const settled = snapshot.installation.active && !activity.installation.active || snapshot.execution.active && !activity.execution.active;
+      snapshot.execution = activity.execution;
+      snapshot.installation = activity.installation;
+      if (settled) {
+        await readSnapshot();
+        if (!busy) render();
+        return;
+      }
+      const current = document.getElementById("execution-state");
+      const nextExecution = execution();
+      if (current && current.outerHTML !== nextExecution)
+        current.outerHTML = nextExecution;
       showInstallation();
-      if (wasActive && !value.installation.active) render();
+      controls();
     }).catch(() => {
+    }).finally(() => {
+      polling = false;
     });
   }, 1500);
+  window.addEventListener("pagehide", () => clearInterval(poll), { once: true });
 })();
 </script></html>

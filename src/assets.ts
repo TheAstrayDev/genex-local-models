@@ -33,7 +33,7 @@ export async function retrieve(ctx:PluginContext,id:unknown){
  const native=await nativeResult(ctx,id),previous=await savedRecord(ctx,native.id);
  if(native.state!=='completed')return {record:previous,native:nativeSummary(native),restored:false};
  const files=await ctx.host('assets.deliver',{output:native.output,jobId:native.id});
- const record={...previous,jobId:native.id,files,assets:assetEntries(files),use:previous.use?.workspace===ctx.directory?previous.use:{stage:'unconfirmed'}};
+ const record:Record<string,any>&{jobId:string;files:string[]}={...previous,jobId:native.id,files,assets:assetEntries(files),use:previous.use?.workspace===ctx.directory?previous.use:{stage:'unconfirmed'}};
  await ctx.host('jobs.write',{id:native.id,value:record});
  return {record,native:nativeSummary(native),restored:true,integration:'Use exact assets[].url in this workspace. Never retype a UUID. Delivery registers files in Genex Assets; it does not verify their use in the game.'};
 }

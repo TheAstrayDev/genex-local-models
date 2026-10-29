@@ -2,7 +2,7 @@ import {mkdir,readFile,writeFile,rename,lstat,readdir,realpath} from 'node:fs/pr
 import os from 'node:os';
 import path from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
-import {catalog,defaults,routes,validateAssignments,type Route,type Assignments} from './catalog.ts';
+import {catalog,defaults,routes,validateAssignments,type Route,type Assignments,type ModelId} from './catalog.ts';
 import {ModelQueue} from './queue.ts';
 import {installation,startInstallation,cancelInstallation,modelHome} from './installer.ts';
 import {assetEntries,nativeResult,retrieve,retainedAssets,restoreAssets} from './assets.ts';
@@ -12,8 +12,8 @@ import {currentHost,compatibility,runtimeDirectory,installationPlan,type Host} f
 
 const queue=new ModelQueue();
 let activeModel:string|null=null;
-const runtimeId='qwen';
 const MODEL_RESULT='GENEX_LOCAL_RESULT ';
+const execution=()=>({policy:'one-model-at-a-time',sleep:'terminate-process',active:queue.active,model:activeModel,pending:queue.pending});
 
 async function storage(ctx:PluginContext){return ctx.host('storage.root');}
 async function assignments(root:string):Promise<Assignments>{
@@ -28,25 +28,24 @@ async function regular(root:string,file:string){
  }catch{return false;}
 }
 async function state(ctx:PluginContext,host:Host){
- const root=await storage(ctx),runtime=await ctx.host('runtime.detect',{runtime:runtimeId});
- const qwen=await ctx.host('runtime.detect',{runtime:'qwen'});
- const audio=await ctx.host('runtime.detect',{runtime:'audio'});
- const hunyuan=await ctx.host('runtime.detect',{runtime:'hunyuan'});
+ const root=await storage(ctx);
+ const [qwen,audio,hunyuan]=await Promise.all(['qwen','audio','hunyuan'].map(runtime=>ctx.host('runtime.detect',{runtime})));
+ const runtime=qwen;
  const runtimeRoot=runtime.path?runtimeDirectory(runtime.path):null;
  const models=await Promise.all(catalog.map(async model=>{
-  const selected=model.id==='qwen-image-2.1-turbo'?qwen:model.id==='hunyuan3d-2-turbo'?hunyuan:audio;
+  const selected={qwen,audio,hunyuan}[model.family];
   const modelRoot=selected.path?runtimeDirectory(selected.path):null;
   const support=compatibility(model.id,host);
   const required=model.files.map(file=>host.platform==='darwin'?file.replace('audiocpp_cli.exe','audiocpp_cli'):file);
   const available=modelRoot?await Promise.all(required.map(file=>regular(modelRoot,file))):[];
   const ready=support.supported&&selected.state==='ready'&&available.length>0&&available.every(Boolean);
   return {...model,...support,ready,runtimeRoot:modelRoot,state:!support.supported?'unsupported':model.id===activeModel?'working':ready?'sleeping':model.gate?'access-required':'not-installed',
-   reason:!support.supported?support.requirement:model.id===activeModel?'One model worker is active. Other models stay asleep.':ready?'Loads only when assigned work starts.':model.id==='hunyuan3d-2-turbo'?'The Hunyuan3D Windows Portable runtime needs its verified local texture setup.':'Use Install to download and verify the public weights and runtime. No account or token is needed.'};
+   reason:!support.supported?support.requirement:model.id===activeModel?'One model worker is active. Other models stay asleep.':ready?'Loads only when assigned work starts.':model.family==='hunyuan'?'The Hunyuan3D Windows Portable runtime needs its verified local texture setup.':'Use Install to download and verify the public weights and runtime. No account or token is needed.'};
  }));
  let recent:unknown[]=[];
  try{recent=JSON.parse(await readFile(path.join(root,'recent.json'),'utf8'));}catch{}
  return {project:ctx.project??null,host,runtime,qwen,root:runtimeRoot,models,downloadCache:await modelHome(),modelDirectory:path.join(os.homedir(),'Genex-Local-Models'),installation:installation(),assignments:await assignments(root),
-  execution:{policy:'one-model-at-a-time',sleep:'terminate-process',active:queue.active,model:activeModel,pending:queue.pending},recent};
+  execution:execution(),recent};
 }
 
 /** Bounded metadata-only discovery. A filename is not evidence a model can perform every task. */
@@ -96,10 +95,11 @@ export function requestFor(name:string,args:Record<string,unknown>):{route:Route
  return {route,request:{prompt:args.prompt,seed:Number(seed),duration},inputs:{}};
 }
 
-async function generate(name:string,args:Record<string,unknown>,ctx:PluginContext,host:Host,shape?:string){
+async function generate(name:string,args:Record<string,unknown>,ctx:PluginContext,host:Host,shape?:string,pinnedModel?:ModelId){
  const request=requestFor(name,args),root=await storage(ctx);
- const selection=await assignments(root),selected=selection[request.route];
- if(!selected)throw Error(`No local model is assigned to ${request.route}. Choose one in Plugins → Local Models.`);
+ const selection=await assignments(root);
+ if(!selection[request.route])throw Error(`No local model is assigned to ${request.route}. Choose one in Plugins → Local Models.`);
+ const selected=pinnedModel??selection[request.route];
  const snapshot=await state(ctx,host),model=snapshot.models.find(model=>model.id===selected);
  if(!model?.ready)throw Error(`${model?.name??selected}: ${model?.reason??'not installed'}`);
  return queue.run(root,ctx.signal,async()=>{
@@ -122,7 +122,7 @@ async function generate(name:string,args:Record<string,unknown>,ctx:PluginContex
      const line=job.stdout?.split('\n').findLast(line=>line.startsWith(MODEL_RESULT));
      if(!line)return true;
      const receipt=JSON.parse(line.slice(MODEL_RESULT.length));
-     return receipt.seed===request.request.seed&&receipt.quality===request.request.quality;
+     return (receipt.model??'hunyuan3d-2-turbo')===selected&&receipt.seed===request.request.seed&&receipt.quality===request.request.quality;
     });
    if(previous){
     if(previous.state!=='completed')throw Error(`Existing ${recipe} job ${previous.id} is ${previous.state}: ${previous.reason??''}. Inspect or retrieve this exact job; no duplicate was started.`);
@@ -152,7 +152,14 @@ async function generate(name:string,args:Record<string,unknown>,ctx:PluginContex
  });
 }
 
-/** One request can create its own reference; every GPU phase keeps the existing single-worker lease. */
+/** A retained pipeline may select only a reviewed 3D adapter. */
+function modelForStage(value:unknown):ModelId{
+ const model=catalog.find(model=>model.id===value&&(model.routes as readonly string[]).includes('model'));
+ if(!model)throw Error('The retained job names an unsupported 3D model. No new generation was started.');
+ return model.id;
+}
+
+/** Each stage keeps the model selected when the pipeline began, even after defaults change. */
 async function generateModel(args:Record<string,unknown>,ctx:PluginContext,host:Host){
  const allowed=['name','image','imageJobId','shapeJobId','prompt','seed','quality'];
  if(Object.keys(args).some(key=>!allowed.includes(key)))throw Error('Unknown generation argument.');
@@ -166,12 +173,14 @@ async function generateModel(args:Record<string,unknown>,ctx:PluginContext,host:
   const receipt=JSON.parse(line.slice(MODEL_RESULT.length));
   if((args.seed!==undefined&&args.seed!==receipt.seed)||(args.quality!==undefined&&args.quality!==receipt.quality))throw Error('Painting must preserve the shape job seed and quality.');
   const delivered=await retrieve(ctx,shape.id),files=delivered.record.files as string[];
+  if(receipt.model&&delivered.record.model&&receipt.model!==delivered.record.model)throw Error('The retained shape model does not match its worker receipt.');
+  const pinnedModel=modelForStage(receipt.model??delivered.record.model??'hunyuan3d-2-turbo');
   const mesh=files.find(file=>file.endsWith('/shape.glb')),image=files.find(file=>file.endsWith('/reference.png'));
   if(!mesh||!image)throw Error(`Shape job ${shape.id} is missing its mesh or prepared reference. No generation was started.`);
   requestFor('generate-model',{name:args.name,image,seed:receipt.seed,quality:receipt.quality});
   const retained={shapeJobId:shape.id,shapeAssets:assetEntries(files),textured:false};
   try{
-   const result=await generate('generate-model',{name:args.name,image,seed:receipt.seed,quality:receipt.quality},ctx,host,mesh);
+   const result=await generate('generate-model',{name:args.name,image,seed:receipt.seed,quality:receipt.quality},ctx,host,mesh,pinnedModel);
    const completed={...result,shapeJobId:shape.id,completed:true,textured:true,state:'completed'};
    await ctx.host('jobs.write',{id:result.jobId,value:completed});
    return completed;
@@ -187,11 +196,12 @@ async function generateModel(args:Record<string,unknown>,ctx:PluginContext,host:
  // Validate everything before an expensive reference generation or any delivery.
  const selection=await state(ctx,host),selected=selection.assignments.model;
  const model=selection.models.find(model=>model.id===selected);
- if(!model?.ready)throw Error(`No ready local model is assigned to model. ${model?.reason??'Choose Hunyuan3D in Plugins → Local Models.'}`);
  const profile=requestFor('generate-model',{name:args.name,image:'assets/reference.png',seed:args.seed,quality:args.quality}).request.quality;
  let referenceJobId=args.imageJobId;
  if(choices[0]==='prompt'){
+  if(!model?.ready)throw Error(`No ready local model is assigned to model. ${model?.reason??'Choose Hunyuan3D in Plugins → Local Models.'}`);
   const image=await generate('generate-image',{name:args.name,prompt:args.prompt,task:'image',purpose:'model-reference',size:profile==='high'?768:512,seed:args.seed},ctx,host);
+  await ctx.host('jobs.write',{id:image.jobId,value:{...image,modelPipeline:{model:selected,quality:profile}}});
   // Each GPU phase gets its own native job and outer tool-call budget.
   return {state:'reference-ready',completed:false,referenceJobId:image.jobId,referenceAssets:image.assets,
    nextCall:{tool:'theastraydev-local-models__generate-model',arguments:{name:args.name,imageJobId:image.jobId,seed:args.seed??42,quality:profile}},
@@ -200,9 +210,10 @@ async function generateModel(args:Record<string,unknown>,ctx:PluginContext,host:
  const reference=await nativeResult(ctx,referenceJobId);
  if(reference.state!=='completed'||reference.recipe!=='image')throw Error('Use a completed image job from this project as the 3D reference.');
  const delivered=await retrieve(ctx,reference.id),image=delivered.record.files.find((file:string)=>/\.(png|jpe?g|webp)$/i.test(file));
+ const pinnedModel=modelForStage(delivered.record.modelPipeline?.model??selected);
  if(!image)throw Error(`Reference job ${reference.id} has no delivered image. Retrieve it before retrying; do not regenerate it.`);
  try{
-  const result=shapeReady(await generate('generate-model',{name:args.name,image,seed:args.seed,quality:profile},ctx,host),reference.id);
+  const result=shapeReady(await generate('generate-model',{name:args.name,image,seed:args.seed,quality:profile},ctx,host,undefined,pinnedModel),reference.id);
   await ctx.host('jobs.write',{id:result.jobId,value:result});
   return result;
  }catch(error){throw Error(`3D generation did not complete. Reference job ${reference.id} is retained. Inspect retained jobs before continuing with imageJobId=${reference.id} and quality=${profile}. Never automatically retry a failed stage. ${String(error)}`);}
@@ -220,6 +231,7 @@ export const createPlugin=(host:Host):Awaited<ReturnType<Activate>>=>({
  },
  async action(name,args,ctx){
   if(name==='status')return state(ctx,host);
+  if(name==='activity')return {execution:execution(),installation:installation()};
   if(name==='discover')return discover();
   if(name==='restore-assets')return restoreAssets(ctx);
   if(name==='install'){
@@ -229,6 +241,11 @@ export const createPlugin=(host:Host):Awaited<ReturnType<Activate>>=>({
   if(name==='cancel-install')return cancelInstallation();
   if(name==='assign'){
    const value=validateAssignments(args),root=await storage(ctx);await mkdir(root,{recursive:true});
+   const previous=await assignments(root);
+   for(const route of routes){
+    const id=value[route];
+    if(id&&id!==previous[route]&&!compatibility(id,host).supported)throw Error(`${id} is not available on this computer. ${compatibility(id,host).requirement}`);
+   }
    const temp=path.join(root,`assignments-${randomUUID()}.tmp`);await writeFile(temp,JSON.stringify(value));await rename(temp,path.join(root,'assignments.json'));return value;
   }
   throw Error('Unknown Local Models action.');
